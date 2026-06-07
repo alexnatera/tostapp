@@ -1,7 +1,16 @@
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
+function getToken(): string | null {
+  try {
+    const raw = localStorage.getItem("tostapp-auth");
+    return raw ? (JSON.parse(raw)?.state?.token ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token");
+  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
@@ -36,6 +45,7 @@ export const api = {
     create: (data: RoastCreate) =>
       req<Roast>("/roasts", { method: "POST", body: JSON.stringify(data) }),
     delete: (id: string) => req<void>(`/roasts/${id}`, { method: "DELETE" }),
+    exportUrl: () => `${BASE}/roasts/export`,
   },
   public: {
     roast: (slug: string) => req<RoastPublic>(`/r/${slug}`),
@@ -52,7 +62,7 @@ export interface Roast {
   variety?: string;
   process?: string;
   roast_date: string;
-  roast_level: string;
+  roast_level: "light" | "medium" | "dark";
   roast_time_minutes?: number;
   charge_temp?: number;
   drop_temp?: number;

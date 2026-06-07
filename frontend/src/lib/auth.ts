@@ -14,11 +14,9 @@ export const useAuth = create<AuthState>()(
       token: null,
       roasteryName: null,
       setToken: (token, roasteryName) => {
-        localStorage.setItem("token", token);
         set({ token, roasteryName });
       },
       logout: () => {
-        localStorage.removeItem("token");
         set({ token: null, roasteryName: null });
       },
     }),

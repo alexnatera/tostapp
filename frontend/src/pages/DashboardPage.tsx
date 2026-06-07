@@ -9,11 +9,12 @@ const levelEmoji: Record<string, string> = { light: "🌕", medium: "🟠", dark
 
 export default function DashboardPage() {
   const [roasts, setRoasts] = useState<Roast[]>([]);
+  const [loading, setLoading] = useState(true);
   const { roasteryName, logout } = useAuth();
   const nav = useNavigate();
 
   useEffect(() => {
-    api.roasts.list().then(setRoasts);
+    api.roasts.list().then(setRoasts).finally(() => setLoading(false));
   }, []);
 
   return (
@@ -35,7 +36,16 @@ export default function DashboardPage() {
         + Nuevo tueste
       </Link>
 
-      {roasts.length === 0 ? (
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm p-4 animate-pulse">
+              <div className="h-4 bg-amber-100 rounded w-2/3 mb-2" />
+              <div className="h-3 bg-amber-50 rounded w-1/3" />
+            </div>
+          ))}
+        </div>
+      ) : roasts.length === 0 ? (
         <div className="text-center text-amber-400 py-12">
           <p className="text-4xl mb-3">☕</p>
           <p>Aún no tienes tuestes registrados.</p>

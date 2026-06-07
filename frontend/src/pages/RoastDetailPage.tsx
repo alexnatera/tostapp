@@ -1,25 +1,84 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { api, type Roast } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+const levelLabel: Record<string, string> = {
+  light: "Claro",
+  medium: "Medio",
+  dark: "Oscuro",
+};
+
+const levelStyle: Record<string, string> = {
+  light: "bg-yellow-100 text-yellow-800",
+  medium: "bg-orange-100 text-orange-800",
+  dark: "bg-stone-200 text-stone-800",
+};
+
 export default function RoastDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { state } = useLocation();
   const [roast, setRoast] = useState<Roast | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showSavedToast, setShowSavedToast] = useState(state?.justCreated ?? false);
   const nav = useNavigate();
 
   useEffect(() => {
-    if (id) api.roasts.get(id).then(setRoast);
+    if (id) api.roasts.get(id).then(setRoast).catch(() => setLoadError(true));
   }, [id]);
 
-  if (!roast) return <div className="p-6 text-amber-700">Cargando...</div>;
+  useEffect(() => {
+    if (showSavedToast) {
+      const t = setTimeout(() => setShowSavedToast(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [showSavedToast]);
+
+  if (loadError) return (
+    <div className="max-w-lg mx-auto px-4 py-6">
+      <button onClick={() => nav("/")} className="text-amber-700 text-sm mb-4">← Mis tuestes</button>
+      <div className="text-center py-12 text-amber-600">
+        <p className="text-3xl mb-3">☕</p>
+        <p>No se pudo cargar este tueste.</p>
+        <button onClick={() => nav("/")} className="mt-4 text-sm underline text-amber-700">Volver al inicio</button>
+      </div>
+    </div>
+  );
+
+  if (!roast) return (
+    <div className="max-w-lg mx-auto px-4 py-6">
+      <div className="animate-pulse space-y-4">
+        <div className="h-4 bg-amber-100 rounded w-1/4" />
+        <div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
+          <div className="h-6 bg-amber-100 rounded w-2/3" />
+          <div className="h-4 bg-amber-50 rounded w-1/3" />
+          <div className="h-24 bg-amber-50 rounded" />
+        </div>
+      </div>
+    </div>
+  );
 
   const qrUrl = api.public.qrUrl(roast.slug);
   const publicUrl = `${window.location.origin}/r/${roast.slug}`;
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(publicUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
+      {/* Success toast after form submit */}
+      {showSavedToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-800 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg">
+          Tueste guardado y etiqueta lista ✓
+        </div>
+      )}
+
       <button onClick={() => nav("/")} className="text-amber-700 text-sm mb-4">← Mis tuestes</button>
 
       <div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
@@ -29,7 +88,7 @@ export default function RoastDetailPage() {
             {roast.farm && <p className="text-sm text-amber-600">Finca {roast.farm}</p>}
           </div>
           <span className={`text-xs font-medium px-3 py-1 rounded-full ${levelStyle[roast.roast_level]}`}>
-            {roast.roast_level}
+            {levelLabel[roast.roast_level] ?? roast.roast_level}
           </span>
         </div>
 
@@ -54,10 +113,10 @@ export default function RoastDetailPage() {
                 Descargar QR
               </a>
               <button
-                onClick={() => navigator.clipboard.writeText(publicUrl)}
+                onClick={handleCopy}
                 className="block w-full text-center border border-amber-300 text-amber-800 rounded-lg py-2 text-sm hover:bg-amber-50 transition"
               >
-                Copiar link público
+                {copied ? "¡Copiado! ✓" : "Copiar link público"}
               </button>
             </div>
           </div>
@@ -66,9 +125,3 @@ export default function RoastDetailPage() {
     </div>
   );
 }
-
-const levelStyle: Record<string, string> = {
-  light: "bg-yellow-100 text-yellow-800",
-  medium: "bg-orange-100 text-orange-800",
-  dark: "bg-stone-200 text-stone-800",
-};

@@ -9,6 +9,7 @@ import DashboardPage from "./pages/DashboardPage";
 import NewRoastPage from "./pages/NewRoastPage";
 import RoastDetailPage from "./pages/RoastDetailPage";
 import PublicRoastPage from "./pages/PublicRoastPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -22,6 +23,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/r/:slug" element={<PublicRoastPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/roasts/new" element={<PrivateRoute><NewRoastPage /></PrivateRoute>} />
         <Route path="/roasts/:id" element={<PrivateRoute><RoastDetailPage /></PrivateRoute>} />

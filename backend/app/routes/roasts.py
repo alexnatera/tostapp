@@ -6,7 +6,7 @@ import uuid
 from datetime import date
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -39,7 +39,6 @@ def _current_user(
 
 
 def _make_slug(origin: str, roast_date: date) -> str:
-    # Transliterate non-ASCII chars (e.g. accented vowels) before stripping
     normalized = unicodedata.normalize("NFKD", origin).encode("ascii", "ignore").decode("ascii")
     base = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-") or "roast"
     return f"{base}-{roast_date.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
@@ -51,13 +50,15 @@ def create_roast(
     db: Session = Depends(get_db),
     user: User = Depends(_current_user),
 ):
-    # batch_number is cosmetic — counted without a lock, so concurrent roasts
-    # on the same date may share a number (rare for single-operator micro-roasters)
-    batch_number = (
+    # Use SELECT ... FOR UPDATE to prevent race conditions on batch_number
+    # Lock the user's roasts for this date so concurrent inserts serialize
+    existing = (
         db.query(Roast)
         .filter(Roast.user_id == user.id, Roast.roast_date == payload.roast_date)
+        .with_for_update()
         .count()
-    ) + 1
+    )
+    batch_number = existing + 1
 
     for _ in range(3):
         roast = Roast(
@@ -79,13 +80,21 @@ def create_roast(
 
 @router.get("/roasts", response_model=list[RoastOut])
 def list_roasts(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     user: User = Depends(_current_user),
 ):
-    return db.query(Roast).filter(Roast.user_id == user.id).order_by(Roast.roast_date.desc()).all()
+    return (
+        db.query(Roast)
+        .filter(Roast.user_id == user.id)
+        .order_by(Roast.roast_date.desc(), Roast.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
 
 
-# Registered before /{roast_id} so FastAPI doesn't match "export" as a roast ID
 @router.get("/roasts/export")
 def export_roasts_csv(
     db: Session = Depends(get_db),
@@ -106,8 +115,7 @@ def export_roasts_csv(
     ]
 
     buf = io.StringIO()
-    # utf-8-sig BOM for Excel compatibility with Spanish chars
-    buf.write("﻿")
+    buf.write("\ufeff")  # UTF-8 BOM for Excel + Spanish chars
     writer = csv.DictWriter(buf, fieldnames=fields)
     writer.writeheader()
     for r in roasts:

@@ -29,7 +29,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   auth: {
     register: (data: { email: string; password: string; roastery_name: string }) =>
-      req<{ id: string; email: string; roastery_name: string }>("/auth/register", {
+      req<{ id: string; email: string; roastery_name: string; email_verified: boolean }>("/auth/register", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -37,6 +37,21 @@ export const api = {
       req<{ access_token: string; token_type: string }>("/auth/login", {
         method: "POST",
         body: JSON.stringify(data),
+      }),
+    verifyEmail: (code: string) =>
+      req<{ message: string }>("/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      }),
+    forgotPassword: (email: string) =>
+      req<{ message: string }>("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (token: string, new_password: string) =>
+      req<{ message: string }>("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, new_password }),
       }),
   },
   roasts: {

@@ -1,10 +1,9 @@
 import uuid
-from datetime import datetime, timezone
-
-from sqlalchemy import Boolean, DateTime, String, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import UTC, datetime
 
 from app.core.database import Base
+from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class User(Base):
@@ -29,6 +28,6 @@ class User(Base):
     login_attempts: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     roasts: Mapped[list["Roast"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821

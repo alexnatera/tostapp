@@ -6,18 +6,16 @@ import uuid
 from datetime import date
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
-
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.roast import Roast
 from app.models.user import User
 from app.schemas.roast import RoastCreate, RoastOut, RoastPublic
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload
 
 router = APIRouter(tags=["roasts"])
 bearer = HTTPBearer()
@@ -31,7 +29,7 @@ def _current_user(
         payload = jwt.decode(creds.credentials, settings.secret_key, algorithms=[settings.algorithm])
         user_id = payload.get("sub")
     except JWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token") from None
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")

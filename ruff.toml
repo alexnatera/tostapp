@@ -2,7 +2,7 @@ target-version = "py313"
 
 [lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
-ignore = ["E501"]  # line length handled by formatter
+ignore = ["E501", "B008"]  # E501: line length; B008: FastAPI Depends pattern
 
 [format]
 quote-style = "double"

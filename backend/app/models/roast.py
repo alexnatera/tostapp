@@ -1,10 +1,18 @@
 import uuid
-from datetime import date, datetime, timezone
-
-from sqlalchemy import CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import UTC, date, datetime
 
 from app.core.database import Base
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class Roast(Base):
@@ -37,6 +45,6 @@ class Roast(Base):
     tasting_notes: Mapped[str | None] = mapped_column(String)  # e.g. "Chocolate, caramelo, cítrico"
     roaster_notes: Mapped[str | None] = mapped_column(Text)  # freeform story
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship(back_populates="roasts")  # noqa: F821

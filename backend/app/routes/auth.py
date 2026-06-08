@@ -1,10 +1,5 @@
 import secrets
-from datetime import datetime, timedelta, timezone
-
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from sqlalchemy.orm import Session
+from datetime import UTC, datetime, timedelta
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -19,6 +14,10 @@ from app.schemas.user import (
     UserOut,
     VerifyEmailRequest,
 )
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
@@ -41,7 +40,7 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
 
     verification_code = _generate_code()
-    code_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    code_expires = datetime.now(UTC) + timedelta(hours=24)
 
     user = User(
         email=payload.email,
@@ -62,8 +61,8 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
 
     # Check account lockout
-    if user and user.locked_until and user.locked_until > datetime.now(timezone.utc):
-        remaining = int((user.locked_until - datetime.now(timezone.utc)).total_seconds() / 60)
+    if user and user.locked_until and user.locked_until > datetime.now(UTC):
+        remaining = int((user.locked_until - datetime.now(UTC)).total_seconds() / 60)
         raise HTTPException(
             status.HTTP_423_LOCKED,
             f"Cuenta bloqueada. Intenta de nuevo en {remaining} min.",
@@ -74,7 +73,7 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
         if user:
             user.login_attempts += 1
             if user.login_attempts >= 5:
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+                user.locked_until = datetime.now(UTC) + timedelta(minutes=15)
                 user.login_attempts = 0
             db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
@@ -94,13 +93,13 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
     """Verify email with the 6-digit code sent on registration."""
     user = db.query(User).filter(
         User.verification_code == payload.code,
-        User.email_verified == False,
+        not User.email_verified,
     ).first()
 
     if not user:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Código inválido o ya utilizado")
 
-    if user.verification_code_expires and user.verification_code_expires < datetime.now(timezone.utc):
+    if user.verification_code_expires and user.verification_code_expires < datetime.now(UTC):
         raise HTTPException(status.HTTP_410_GONE, "El código expiró. Solicita uno nuevo.")
 
     user.email_verified = True
@@ -114,12 +113,12 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
 @limiter.limit("3/minute")
 def resend_verification(request: Request, email: str, db: Session = Depends(get_db)):
     """Resend verification code. In dev mode, returns the code in the response."""
-    user = db.query(User).filter(User.email == email, User.email_verified == False).first()
+    user = db.query(User).filter(User.email == email, not User.email_verified).first()
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado o email ya verificado")
 
     user.verification_code = _generate_code()
-    user.verification_code_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    user.verification_code_expires = datetime.now(UTC) + timedelta(hours=24)
     db.commit()
 
     # TODO: Send via email provider (SendGrid/SES) in production
@@ -135,7 +134,7 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Sessio
     user = db.query(User).filter(User.email == payload.email).first()
     if user:
         user.reset_token = _generate_reset_token()
-        user.reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        user.reset_token_expires = datetime.now(UTC) + timedelta(hours=1)
         db.commit()
 
         # TODO: Send reset link via email provider
@@ -152,7 +151,7 @@ def reset_password(request: Request, payload: ResetPasswordRequest, db: Session 
     """Reset password using token from forgot-password."""
     user = db.query(User).filter(
         User.reset_token == payload.token,
-        User.reset_token_expires > datetime.now(timezone.utc),
+        User.reset_token_expires > datetime.now(UTC),
     ).first()
 
     if not user:

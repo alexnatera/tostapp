@@ -21,3 +21,4 @@ postgres_data/
 .vscode/
 .idea/
 *.swp
+.gstack/

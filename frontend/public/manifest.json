@@ -1,0 +1,21 @@
+{
+  "name": "Tostapp",
+  "short_name": "Tostapp",
+  "description": "Tu bitácora de tuestes artesanales",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0a09",
+  "theme_color": "#92400e",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

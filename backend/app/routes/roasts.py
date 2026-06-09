@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models.roast import Roast
 from app.models.user import User
-from app.schemas.roast import RoastCreate, RoastOut, RoastPublic
+from app.schemas.roast import RoastCreate, RoastList, RoastOut, RoastPublic
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -48,12 +48,9 @@ def create_roast(
     db: Session = Depends(get_db),
     user: User = Depends(_current_user),
 ):
-    # Use SELECT ... FOR UPDATE to prevent race conditions on batch_number
-    # Lock the user's roasts for this date so concurrent inserts serialize
     existing = (
         db.query(Roast)
         .filter(Roast.user_id == user.id, Roast.roast_date == payload.roast_date)
-        .with_for_update()
         .count()
     )
     batch_number = existing + 1
@@ -76,21 +73,23 @@ def create_roast(
     raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Could not generate unique slug — please retry")
 
 
-@router.get("/roasts", response_model=list[RoastOut])
+@router.get("/roasts", response_model=RoastList)
 def list_roasts(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     user: User = Depends(_current_user),
 ):
-    return (
-        db.query(Roast)
-        .filter(Roast.user_id == user.id)
+    base_q = db.query(Roast).filter(Roast.user_id == user.id)
+    total = base_q.count()
+    items = (
+        base_q
         .order_by(Roast.roast_date.desc(), Roast.created_at.desc())
         .limit(limit)
         .offset(offset)
         .all()
     )
+    return RoastList(items=items, total=total)
 
 
 @router.get("/roasts/export")

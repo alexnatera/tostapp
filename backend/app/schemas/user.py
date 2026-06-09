@@ -37,6 +37,8 @@ class UserOut(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    roastery_name: str = ""
+    is_admin: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):

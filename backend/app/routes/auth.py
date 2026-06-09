@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
+from app.utils.email import send_reset_email, send_verification_email
 from app.schemas.user import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
@@ -46,12 +47,16 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
         email=payload.email,
         hashed_password=hash_password(payload.password),
         roastery_name=payload.roastery_name,
+        is_admin=bool(settings.admin_email and payload.email == settings.admin_email),
         verification_code=verification_code,
         verification_code_expires=code_expires,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    send_verification_email(user.email, verification_code)
+
     return user
 
 
@@ -83,7 +88,11 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
     user.locked_until = None
     db.commit()
 
-    return Token(access_token=create_access_token(user.id))
+    return Token(
+        access_token=create_access_token(user.id),
+        roastery_name=user.roastery_name,
+        is_admin=user.is_admin,
+    )
 
 
 # --- Email verification ---
@@ -93,7 +102,7 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
     """Verify email with the 6-digit code sent on registration."""
     user = db.query(User).filter(
         User.verification_code == payload.code,
-        not User.email_verified,
+        User.email_verified == False,  # noqa: E712
     ).first()
 
     if not user:
@@ -113,7 +122,7 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
 @limiter.limit("3/minute")
 def resend_verification(request: Request, email: str, db: Session = Depends(get_db)):
     """Resend verification code. In dev mode, returns the code in the response."""
-    user = db.query(User).filter(User.email == email, not User.email_verified).first()
+    user = db.query(User).filter(User.email == email, User.email_verified == False).first()  # noqa: E712
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado o email ya verificado")
 
@@ -122,7 +131,9 @@ def resend_verification(request: Request, email: str, db: Session = Depends(get_
     db.commit()
 
     # TODO: Send via email provider (SendGrid/SES) in production
-    return {"message": "Código reenviado", "code": user.verification_code if not settings.email_verification_required else None}
+    if not settings.email_verification_required:
+        print(f"[DEV] Verification code for {email}: {user.verification_code}")
+    return {"message": "Código reenviado"}
 
 
 # --- Password reset ---
@@ -137,10 +148,8 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Sessio
         user.reset_token_expires = datetime.now(UTC) + timedelta(hours=1)
         db.commit()
 
-        # TODO: Send reset link via email provider
-        # In dev mode, include the token in logs/response for testing
         reset_url = f"{settings.frontend_url}/reset-password?token={user.reset_token}"
-        print(f"[DEV] Password reset URL: {reset_url}")
+        send_reset_email(user.email, reset_url)
 
     return {"message": "Si el email existe, recibirás un link para restablecer tu contraseña."}
 

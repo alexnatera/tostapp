@@ -26,8 +26,14 @@ class RoastOut(RoastCreate):
     user_id: str
     batch_number: int
     created_at: datetime
+    profile_data: dict | None = None
 
     model_config = {"from_attributes": True}
+
+
+class RoastList(BaseModel):
+    items: list[RoastOut]
+    total: int
 
 
 class RoastPublic(BaseModel):

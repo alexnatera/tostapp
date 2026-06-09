@@ -14,6 +14,10 @@ if config.config_file_name is not None:
 from app.core.database import Base  # noqa: E402
 import app.models.user  # noqa: E402, F401
 import app.models.roast  # noqa: E402, F401
+import app.models.purchase  # noqa: E402, F401
+import app.models.sale  # noqa: E402, F401
+import app.models.customer  # noqa: E402, F401
+import app.models.supplier  # noqa: E402, F401
 
 target_metadata = Base.metadata
 

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 44" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b1a0a"/>
+      <stop offset="100%" stop-color="#1c0d05"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="bean" x1="10" y1="10" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#b45309"/>
+      <stop offset="60%" stop-color="#6b2e05"/>
+      <stop offset="100%" stop-color="#3b1505"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="38%" cy="30%" r="55%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#92400e" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="0.8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="1" y="1" width="42" height="42" rx="10" fill="url(#bg)"/>
+  <circle cx="22" cy="22" r="14.5" stroke="url(#ring)" stroke-width="1.5" fill="none"/>
+  <ellipse cx="22" cy="22" rx="10" ry="12" fill="url(#bean)"/>
+  <ellipse cx="22" cy="22" rx="10" ry="12" fill="url(#sheen)"/>
+  <path d="M22 11.5 C17.5 15 17.5 19.5 22 22 C26.5 24.5 26.5 29 22 32.5"
+        stroke="#fde68a" stroke-width="1.4" stroke-linecap="round" fill="none"
+        filter="url(#glow)" opacity="0.95"/>
+
+  <!-- Dark mode: white + amber text -->
+  <text x="52" y="28.5"
+        font-family="'Inter', ui-sans-serif, system-ui, sans-serif"
+        font-weight="700" font-size="20" fill="#fafaf9" letter-spacing="-0.6">Tost</text>
+  <text x="91.5" y="28.5"
+        font-family="'Inter', ui-sans-serif, system-ui, sans-serif"
+        font-weight="400" font-size="20" fill="#fbbf24" letter-spacing="-0.4">app</text>
+</svg>

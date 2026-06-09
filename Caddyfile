@@ -1,0 +1,13 @@
+{$APP_DOMAIN} {
+    encode gzip
+
+    # API routes to backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else to frontend
+    handle {
+        reverse_proxy frontend:80
+    }
+}

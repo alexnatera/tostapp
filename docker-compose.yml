@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: tostapp
       POSTGRES_USER: tostapp
@@ -17,11 +18,15 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://tostapp:${POSTGRES_PASSWORD}@db:5432/tostapp
       SECRET_KEY: ${SECRET_KEY}
-      FRONTEND_URL: ${FRONTEND_URL:-http://tostapp.tugtools.online}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://tostapp.tugtools.online}
+      FRONTEND_URL: ${APP_URL}
+      CORS_ORIGINS: ${APP_URL}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Tostapp <noreply@tostapp.app>}
+      EMAIL_VERIFICATION_REQUIRED: ${EMAIL_VERIFICATION_REQUIRED:-false}
     depends_on:
       db:
         condition: service_healthy
@@ -33,21 +38,34 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: /api
+    restart: unless-stopped
     depends_on:
       - backend
     networks:
       - internal
-      - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tostapp.rule=Host(`tostapp.tugtools.online`)"
-      - "traefik.http.routers.tostapp.entrypoints=web"
-      - "traefik.http.services.tostapp.loadbalancer.server.port=80"
+      - web
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+    depends_on:
+      - frontend
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   internal:
-  proxy:
-    external: true
+  web:

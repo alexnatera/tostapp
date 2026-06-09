@@ -12,17 +12,13 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     # Rate limiting
-    rate_limit_auth: str = "10/minute"  # stricter for auth endpoints
+    rate_limit_auth: str = "10/minute"
     rate_limit_default: str = "60/minute"
 
-    # Email verification (set up with your provider in production)
-    # For now tokens are returned in API response for dev
-    email_verification_required: bool = False  # toggle when email provider is configured
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    admin_email: str = ""
+    # Email — Resend (https://resend.com, free tier: 3k emails/month)
+    resend_api_key: str = ""
+    email_from: str = "Tostapp <noreply@tostapp.app>"
+    email_verification_required: bool = False
 
     class Config:
         env_file = ".env"

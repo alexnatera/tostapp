@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Roast } from "../lib/api";
+import { api, type Roast, type FinanceDashboard } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import AppLayout from "../components/AppLayout";
@@ -12,18 +12,36 @@ const levelDot: Record<string, string> = {
 };
 const levelLabel: Record<string, string> = { light: "Claro", medium: "Medio", dark: "Oscuro" };
 
+function fmt(n: number, decimals = 1) {
+  return n.toLocaleString("es", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 px-4 py-3 flex-1 min-w-0">
+      <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">{label}</p>
+      <p className="text-xl font-bold text-stone-900 dark:text-stone-100 truncate">{value}</p>
+      {sub && <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [roasts, setRoasts] = useState<Roast[]>([]);
+  const [finance, setFinance] = useState<FinanceDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.roasts.list().then((res) => setRoasts(res.items)).finally(() => setLoading(false));
+    Promise.all([
+      api.roasts.list().then((res) => setRoasts(res.items)),
+      api.finance.dashboard(30).then(setFinance).catch(() => null),
+    ]).finally(() => setLoading(false));
   }, []);
 
   return (
     <AppLayout active="tuestes">
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24 lg:pb-8 lg:py-8">
-        <header className="flex items-center justify-between mb-6">
+        <header className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100">Tuestes</h1>
             <p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">
@@ -47,6 +65,28 @@ export default function DashboardPage() {
             </Link>
           </div>
         </header>
+
+        {/* KPI summary — last 30 days */}
+        {finance && (
+          <div className="flex gap-2.5 mb-5 overflow-x-auto pb-0.5">
+            <KpiCard
+              label="Stock tostado"
+              value={`${fmt(finance.stock_roasted_kg)} kg`}
+              sub={`${fmt(finance.stock_verde_kg)} kg verde`}
+            />
+            <KpiCard
+              label="Ingresos 30d"
+              value={`$${fmt(finance.total_revenue)}`}
+              sub={`${fmt(finance.total_sold_kg)} kg vendidos`}
+            />
+            <KpiCard
+              label="Tostado 30d"
+              value={`${fmt(finance.total_roasted_kg)} kg`}
+              sub={finance.avg_yield_pct > 0 ? `${fmt(finance.avg_yield_pct)}% yield` : undefined}
+            />
+          </div>
+        )}
+        {!finance && !loading && null}
 
         <div className="mb-5">
           <Link

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { api, type Purchase_, type PurchaseCreate } from "../lib/api";
+import { api, type Purchase_, type PurchaseCreate, type Supplier } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import AppLayout from "../components/AppLayout";
@@ -12,8 +12,9 @@ export default function PurchasesPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<PurchaseCreate>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PurchaseCreate>({
     defaultValues: { purchase_date: new Date().toISOString().slice(0, 10) },
   });
 
@@ -25,7 +26,10 @@ export default function PurchasesPage() {
     }).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.suppliers.list().then((res) => setSuppliers(res.items)).catch(() => null);
+  }, []);
 
   async function onSubmit(data: PurchaseCreate) {
     setSubmitting(true);
@@ -55,6 +59,8 @@ export default function PurchasesPage() {
       alert(e instanceof Error ? e.message : "Error al eliminar");
     }
   }
+
+  const supplierValue = watch("supplier") ?? "";
 
   return (
     <AppLayout active="compras">
@@ -90,7 +96,13 @@ export default function PurchasesPage() {
                 <input {...register("bean_origin")} placeholder="Huila, Colombia" className={inp} />
               </Field>
               <Field label="Proveedor">
-                <input {...register("supplier")} placeholder="Nombre" className={inp} />
+                <ComboField
+                  value={supplierValue}
+                  onChange={(v) => setValue("supplier", v)}
+                  options={suppliers.map((s) => s.name)}
+                  placeholder="Nombre"
+                  inputProps={register("supplier")}
+                />
               </Field>
             </div>
 
@@ -172,6 +184,66 @@ export default function PurchasesPage() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+function ComboField({
+  value,
+  onChange,
+  options,
+  placeholder,
+  inputProps,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+  inputProps: ReturnType<ReturnType<typeof useForm>["register"]>;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const filtered = value
+    ? options.filter((o) => o.toLowerCase().includes(value.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    function close(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <input
+        {...inputProps}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className={inp}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-lg max-h-48 overflow-auto py-1">
+          {filtered.map((name) => (
+            <li
+              key={name}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(name);
+                setOpen(false);
+              }}
+              className="px-3 py-2 text-sm text-stone-800 dark:text-stone-200 hover:bg-amber-50 dark:hover:bg-stone-800 cursor-pointer truncate"
+            >
+              {name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { api, type Sale_, type SaleCreate } from "../lib/api";
+import { api, type Sale_, type SaleCreate, type Customer } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import AppLayout from "../components/AppLayout";
@@ -12,8 +12,9 @@ export default function SalesPage() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<SaleCreate>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<SaleCreate>({
     defaultValues: { sale_date: new Date().toISOString().slice(0, 10) },
   });
 
@@ -25,7 +26,10 @@ export default function SalesPage() {
     }).finally(() => setLoading(false));
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.customers.list().then((res) => setCustomers(res.items)).catch(() => null);
+  }, []);
 
   async function onSubmit(data: SaleCreate) {
     setSubmitting(true);
@@ -55,6 +59,8 @@ export default function SalesPage() {
       alert(e instanceof Error ? e.message : "Error al eliminar");
     }
   }
+
+  const customerValue = watch("customer") ?? "";
 
   return (
     <AppLayout active="ventas">
@@ -86,7 +92,13 @@ export default function SalesPage() {
             )}
 
             <Field label="Cliente">
-              <input {...register("customer")} placeholder="Nombre del cliente (opcional)" className={inp} />
+              <ComboField
+                value={customerValue}
+                onChange={(v) => setValue("customer", v)}
+                options={customers.map((c) => c.name)}
+                placeholder="Nombre del cliente (opcional)"
+                inputProps={register("customer")}
+              />
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
@@ -167,6 +179,66 @@ export default function SalesPage() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+function ComboField({
+  value,
+  onChange,
+  options,
+  placeholder,
+  inputProps,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+  inputProps: ReturnType<ReturnType<typeof useForm>["register"]>;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const filtered = value
+    ? options.filter((o) => o.toLowerCase().includes(value.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    function close(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <input
+        {...inputProps}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className={inp}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-lg max-h-48 overflow-auto py-1">
+          {filtered.map((name) => (
+            <li
+              key={name}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(name);
+                setOpen(false);
+              }}
+              className="px-3 py-2 text-sm text-stone-800 dark:text-stone-200 hover:bg-amber-50 dark:hover:bg-stone-800 cursor-pointer truncate"
+            >
+              {name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

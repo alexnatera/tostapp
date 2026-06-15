@@ -126,6 +126,13 @@ export const api = {
     users: () => req<AdminUser[]>("/admin/users"),
     impersonate: (userId: string) =>
       req<{ access_token: string; roastery_name: string; is_admin: boolean }>(`/admin/impersonate/${userId}`, { method: "POST" }),
+    toggle: (userId: string) =>
+      req<AdminUser>(`/admin/users/${userId}/toggle`, { method: "PATCH" }),
+    setPlan: (userId: string, plan_tier: string, subscription_expires_at?: string) =>
+      req<AdminUser>(`/admin/users/${userId}/plan`, {
+        method: "PATCH",
+        body: JSON.stringify({ plan_tier, subscription_expires_at: subscription_expires_at ?? null }),
+      }),
   },
   public: {
     roast: (slug: string) => req<RoastPublic>(`/r/${slug}`),
@@ -170,9 +177,13 @@ export interface AdminUser {
   roastery_name: string;
   is_beta: boolean;
   is_admin: boolean;
+  is_active: boolean;
+  plan_tier: "beta" | "pro" | "enterprise";
   email_verified: boolean;
   roast_count: number;
   created_at: string;
+  last_active_at: string | null;
+  subscription_expires_at: string | null;
 }
 
 export interface RoastList {

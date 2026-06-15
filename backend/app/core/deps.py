@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User
@@ -21,4 +23,6 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    user.last_active_at = datetime.now(UTC)
+    db.commit()
     return user

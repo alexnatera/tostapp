@@ -93,6 +93,13 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
             db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
 
+    # Check account suspension
+    if not user.is_active:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Cuenta suspendida. Contacta a soporte en soporte@tostapp.app",
+        )
+
     # Reset on successful login
     user.login_attempts = 0
     user.locked_until = None

@@ -16,6 +16,10 @@ class User(Base):
     roastery_name: Mapped[str] = mapped_column(String, nullable=False)
     is_beta: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    plan_tier: Mapped[str] = mapped_column(String(20), default="beta", nullable=False)
+    subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Email verification
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

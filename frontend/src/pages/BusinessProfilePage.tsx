@@ -198,6 +198,51 @@ export default function BusinessProfilePage() {
             </Field>
           </div>
 
+          {/* Tienda pública */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Tienda pública</p>
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">Tu catálogo de productos accesible sin login.</p>
+            </div>
+            <Field label="URL de tu tienda (slug)">
+              <div className="flex rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 focus-within:ring-2 focus-within:ring-amber-400 dark:focus-within:ring-amber-500 focus-within:border-transparent transition-all">
+                <span className="px-3 py-2.5 text-xs text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 border-r border-stone-200 dark:border-stone-700 flex items-center whitespace-nowrap select-none">
+                  /tienda/
+                </span>
+                <input
+                  type="text"
+                  placeholder="mi-tostaderia"
+                  value={profile.roastery_slug ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-{2,}/g, "-");
+                    set("roastery_slug", raw);
+                  }}
+                  className="flex-1 bg-stone-50 dark:bg-stone-800 px-3 py-2.5 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none"
+                />
+              </div>
+              {profile.roastery_slug && (
+                <a
+                  href={`/tienda/${profile.roastery_slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-amber-700 dark:text-amber-400 hover:underline mt-1 inline-block"
+                >
+                  Ver mi tienda →
+                </a>
+              )}
+            </Field>
+            <Field label="WhatsApp (con código de país)">
+              <input
+                type="tel"
+                placeholder="+56912345678"
+                value={profile.whatsapp_number ?? ""}
+                onChange={(e) => set("whatsapp_number", e.target.value)}
+                className={inputCls}
+              />
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">Los clientes podrán contactarte desde la tienda.</p>
+            </Field>
+          </div>
+
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-xl">
               {error}

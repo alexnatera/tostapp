@@ -40,6 +40,7 @@ class RoastPublic(BaseModel):
     """Schema for public QR landing page — no sensitive data."""
     slug: str
     roastery_name: str
+    roastery_slug: str | None = None
     bean_origin: str
     farm: str | None
     variety: str | None

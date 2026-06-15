@@ -75,6 +75,15 @@ export default function PublicRoastPage() {
           </div>
         </div>
 
+        {roast.roastery_slug && (
+          <Link
+            to={`/tienda/${roast.roastery_slug}`}
+            className="flex items-center justify-center gap-2 w-full bg-amber-700 hover:bg-amber-600 text-white font-semibold rounded-2xl py-3.5 transition-colors text-sm"
+          >
+            Ver catálogo completo de {roast.roastery_name} →
+          </Link>
+        )}
+
         <div className="bg-amber-800 dark:bg-amber-700 rounded-2xl p-5 text-center">
           <p className="text-amber-200 text-sm mb-3">¿Eres tostador de café artesanal?</p>
           <Link

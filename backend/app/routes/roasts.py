@@ -166,6 +166,7 @@ def public_roast(slug: str, db: Session = Depends(get_db)):
     return RoastPublic(
         **{c.name: getattr(roast, c.name) for c in Roast.__table__.columns},
         roastery_name=roast.user.roastery_name,
+        roastery_slug=roast.user.roastery_slug,
     )
 
 

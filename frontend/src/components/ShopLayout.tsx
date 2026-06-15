@@ -79,6 +79,17 @@ export default function ShopLayout({ shop }: { shop: ShopPublic }) {
                 Instagram
               </a>
             )}
+            {theme.facebook_url && (
+              <a
+                href={theme.facebook_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs hover:underline"
+                style={{ color: theme.accent_color }}
+              >
+                Facebook
+              </a>
+            )}
           </div>
         </div>
 

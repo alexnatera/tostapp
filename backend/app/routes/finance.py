@@ -8,6 +8,7 @@ from app.models.sale import Sale
 from app.models.user import User
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["finance"])
@@ -90,16 +91,23 @@ def finance_dashboard(
     gross_margin = total_revenue - proportional_verde_cost
     gross_margin_pct = (gross_margin / total_revenue * 100) if total_revenue > 0 else 0.0
 
-    all_purchases = db.query(Purchase).filter(Purchase.user_id == user.id).all()
-    all_sales = db.query(Sale).filter(Sale.user_id == user.id).all()
-    all_roasts = db.query(Roast).filter(Roast.user_id == user.id).all()
-
-    total_ever_purchased_kg = sum(p.kg_purchased for p in all_purchases)
-    total_ever_green_used_kg = sum((r.green_weight_g or 0) / 1000.0 for r in all_roasts)
+    total_ever_purchased_kg = float(
+        db.query(func.coalesce(func.sum(Purchase.kg_purchased), 0.0))
+        .filter(Purchase.user_id == user.id).scalar() or 0.0
+    )
+    total_ever_green_used_kg = float(
+        db.query(func.coalesce(func.sum(Roast.green_weight_g), 0.0))
+        .filter(Roast.user_id == user.id).scalar() or 0.0
+    ) / 1000.0
+    total_ever_roasted_kg = float(
+        db.query(func.coalesce(func.sum(Roast.roasted_weight_g), 0.0))
+        .filter(Roast.user_id == user.id).scalar() or 0.0
+    ) / 1000.0
+    total_ever_sold_kg = float(
+        db.query(func.coalesce(func.sum(Sale.kg_sold), 0.0))
+        .filter(Sale.user_id == user.id).scalar() or 0.0
+    )
     stock_verde_kg = max(0.0, total_ever_purchased_kg - total_ever_green_used_kg)
-
-    total_ever_roasted_kg = sum((r.roasted_weight_g or 0) / 1000.0 for r in all_roasts)
-    total_ever_sold_kg = sum(s.kg_sold for s in all_sales)
     stock_roasted_kg = max(0.0, total_ever_roasted_kg - total_ever_sold_kg)
 
     weekly_summary: list[WeekSummary] = []

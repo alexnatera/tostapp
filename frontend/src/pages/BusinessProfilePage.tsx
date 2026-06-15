@@ -417,6 +417,31 @@ export default function BusinessProfilePage() {
               />
             </Field>
 
+            {/* Facebook */}
+            <Field label="Facebook URL">
+              <input
+                type="url"
+                placeholder="https://facebook.com/mitostaderia"
+                value={theme.facebook_url ?? ""}
+                onChange={(e) => setTheme({ facebook_url: e.target.value || undefined })}
+                className={inputCls}
+              />
+            </Field>
+
+            {/* Banner image */}
+            <Field label="URL de imagen banner">
+              <input
+                type="url"
+                placeholder="https://ejemplo.com/banner.jpg"
+                value={theme.banner_image ?? ""}
+                onChange={(e) => setTheme({ banner_image: e.target.value || undefined })}
+                className={inputCls}
+              />
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+                Aparece en la parte superior de tu tienda pública (recomendado: 1200×400px).
+              </p>
+            </Field>
+
             {/* Live preview */}
             {previewShop && (
               <div>

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token
@@ -27,6 +29,8 @@ def _admin_user(
     user = db.get(User, user_id)
     if not user or not user.is_admin:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required")
+    user.last_active_at = datetime.now(UTC)
+    db.commit()
     return user
 
 
@@ -65,7 +69,7 @@ def get_stats(db: Session = Depends(get_db), _: User = Depends(_admin_user)):
         total_users=db.query(User).count(),
         total_roasts=db.query(Roast).count(),
         verified_users=db.query(User).filter(User.email_verified == True).count(),  # noqa: E712
-        beta_users=db.query(User).filter(User.is_beta == True).count(),  # noqa: E712
+        beta_users=db.query(User).filter(User.plan_tier == "beta").count(),
     )
 
 
@@ -154,7 +158,6 @@ def set_user_plan(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
     target.plan_tier = data.plan_tier
     if data.subscription_expires_at:
-        from datetime import UTC, datetime
         target.subscription_expires_at = datetime.fromisoformat(data.subscription_expires_at).replace(tzinfo=UTC)
     else:
         target.subscription_expires_at = None

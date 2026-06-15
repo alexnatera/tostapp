@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Crear una página pública de catálogo de productos por tostería — `/tienda/:slug` — que los clientes puedan visitar al escanear un QR, ver todos los productos disponibles y contactar al tostador por WhatsApp para comprar.
+**Goal:** Crear una página pública de catálogo de productos por tostería — `/tienda/:slug` — completamente personalizable por cada tostador (colores, tipografía, layout, banner, about text), con preview en tiempo real desde el panel.
 
-**Architecture:** Se añaden `roastery_slug` y `whatsapp_number` al modelo `User`. Un nuevo router público `/tienda/:roastery_slug` devuelve los productos del tostador sin autenticación. La página `PublicRoastPage.tsx` añade un enlace "Ver catálogo". La nueva `PublicShopPage.tsx` muestra nombre, logo, ciudad, productos y CTA de WhatsApp. El tostador configura su slug y WhatsApp en el perfil del negocio.
+**Architecture:** Se añaden `roastery_slug`, `whatsapp_number` y `shop_theme` (JSONB) al modelo `User`. El backend sirve el tema junto al catálogo en `GET /tienda/:slug`. En el frontend, `PublicShopPage.tsx` es un thin wrapper sobre `ShopLayout.tsx`, que aplica los colores del tema como CSS inline en el contenedor y soporta 2 layouts (`list`/`grid`). El `ThemeEditor` en `BusinessProfilePage.tsx` muestra un preview en vivo con el mismo `ShopLayout` component renderizado con el tema en borrador.
 
 **Tech Stack:** FastAPI, SQLAlchemy 2, Alembic, React 19, TypeScript, Tailwind v4
 
@@ -21,11 +21,14 @@
 | `backend/app/main.py` | Registrar el router `shop` |
 | `backend/app/schemas/document.py` | Añadir `roastery_slug` y `whatsapp_number` a `BusinessProfileOut` y `BusinessProfileUpdate` |
 | `frontend/src/lib/api.ts` | Añadir `api.public.shop()` + interfaces `ShopPublic`, `ShopProduct` + actualizar `BusinessProfile` |
-| `frontend/src/pages/PublicShopPage.tsx` | NUEVO: página pública de catálogo |
+| `backend/migrations/versions/0012_shop_theme.py` | Nueva migración — columna `shop_theme` JSONB |
+| `backend/app/schemas/shop.py` | NUEVO: `ShopTheme` Pydantic schema con validación de colores |
+| `frontend/src/components/ShopLayout.tsx` | NUEVO: componente compartido entre tienda pública y preview del editor |
+| `frontend/src/pages/PublicShopPage.tsx` | NUEVO: thin wrapper sobre `ShopLayout` — solo fetching |
 | `frontend/src/main.tsx` | Añadir ruta `/tienda/:slug` |
 | `frontend/src/pages/PublicRoastPage.tsx` | Añadir link "Ver catálogo" si la tostería tiene slug |
-| `frontend/src/pages/BusinessProfilePage.tsx` | Añadir campos `roastery_slug` y `whatsapp_number` |
-| `backend/tests/test_tienda_publica.py` | Tests: slug generation, public endpoint |
+| `frontend/src/pages/BusinessProfilePage.tsx` | Añadir campos `roastery_slug`, `whatsapp_number` + `ThemeEditor` con preview en vivo |
+| `backend/tests/test_tienda_publica.py` | Tests: slug generation, public endpoint, ShopTheme validation |
 
 ---
 
@@ -546,25 +549,185 @@ Resultado esperado: sin errores de tipo.
 
 ---
 
-## Task 7: Frontend — PublicShopPage.tsx (nueva página)
+## Task 7: Frontend — ShopLayout.tsx + PublicShopPage.tsx
 
 **Files:**
+- Create: `frontend/src/components/ShopLayout.tsx`
 - Create: `frontend/src/pages/PublicShopPage.tsx`
 
-- [ ] **Step 1: Crear la página**
+`ShopLayout` es el componente compartido que renderiza la tienda con el tema aplicado. `PublicShopPage` es un thin wrapper que solo hace el fetch y pasa los datos.
+
+- [ ] **Step 1: Crear ShopLayout.tsx**
 
 ```tsx
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { api, type ShopPublic, type ShopProduct } from "../lib/api";
+import { Link } from "react-router-dom";
+import { type ShopPublic, type ShopProduct, type ShopTheme } from "../lib/api";
 
 const fmt = (n: number) => `$${Math.round(n).toLocaleString("es-CL")}`;
 
-function stockColor(qty: number) {
-  if (qty <= 0) return "text-red-500 dark:text-red-400";
-  if (qty < 5) return "text-amber-600 dark:text-amber-400";
-  return "text-emerald-600 dark:text-emerald-400";
+const DEFAULT_THEME: ShopTheme = {
+  primary_color: "#92400e",
+  accent_color: "#d97706",
+  bg_color: "#fafaf9",
+  text_color: "#1c1917",
+  font_family: "sans",
+  layout: "list",
+};
+
+const FONT_CLASS: Record<string, string> = {
+  sans: "font-sans",
+  serif: "font-serif",
+  mono: "font-mono",
+};
+
+export default function ShopLayout({ shop }: { shop: ShopPublic }) {
+  const theme: ShopTheme = { ...DEFAULT_THEME, ...(shop.theme ?? {}) };
+
+  const whatsappUrl = shop.whatsapp_number
+    ? `https://wa.me/${shop.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hola, me interesa comprar café de ${shop.roastery_name}`)}`
+    : null;
+
+  const inStock = shop.products.filter((p) => p.stock_quantity > 0);
+  const outOfStock = shop.products.filter((p) => p.stock_quantity <= 0);
+
+  return (
+    <div
+      className={`min-h-screen ${FONT_CLASS[theme.font_family] ?? "font-sans"}`}
+      style={{ backgroundColor: theme.bg_color, color: theme.text_color }}
+    >
+      <div className="max-w-lg mx-auto px-4 py-10 space-y-6">
+
+        {theme.banner_image && (
+          <div className="w-full h-40 rounded-2xl overflow-hidden">
+            <img src={theme.banner_image} alt="Banner" className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        <div className="text-center space-y-2">
+          {shop.business_logo && (
+            <div className="w-20 h-20 mx-auto rounded-2xl overflow-hidden border border-black/10 mb-4">
+              <img src={shop.business_logo} alt={shop.roastery_name} className="w-full h-full object-contain p-2" />
+            </div>
+          )}
+          <h1 className="text-2xl font-bold">{shop.roastery_name}</h1>
+          {(shop.business_city || shop.business_country) && (
+            <p className="text-sm opacity-60">
+              {[shop.business_city, shop.business_country].filter(Boolean).join(", ")}
+            </p>
+          )}
+          {theme.about_text && (
+            <p className="text-sm opacity-75 max-w-sm mx-auto leading-relaxed">{theme.about_text}</p>
+          )}
+          <div className="flex justify-center gap-4 pt-1">
+            {shop.business_website && (
+              <a href={shop.business_website} target="_blank" rel="noopener noreferrer"
+                className="text-xs hover:underline" style={{ color: theme.accent_color }}>
+                {shop.business_website.replace(/^https?:\/\//, "")}
+              </a>
+            )}
+            {theme.instagram_url && (
+              <a href={theme.instagram_url} target="_blank" rel="noopener noreferrer"
+                className="text-xs hover:underline" style={{ color: theme.accent_color }}>
+                Instagram
+              </a>
+            )}
+          </div>
+        </div>
+
+        {whatsappUrl && (
+          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full font-semibold rounded-2xl py-3.5 transition-opacity hover:opacity-90 text-sm text-white"
+            style={{ backgroundColor: theme.primary_color }}>
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+            Pedir por WhatsApp
+          </a>
+        )}
+
+        {shop.products.length === 0 ? (
+          <div className="text-center py-12 rounded-2xl border border-black/10">
+            <div className="text-4xl mb-3">☕</div>
+            <p className="text-sm opacity-60">Esta tostería aún no ha publicado su catálogo.</p>
+          </div>
+        ) : (
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider opacity-50 mb-3">Catálogo</h2>
+            {theme.layout === "grid" ? (
+              <div className="grid grid-cols-2 gap-3">
+                {inStock.map((p) => <ProductCard key={p.id} product={p} accentColor={theme.accent_color} grid />)}
+                {outOfStock.map((p) => <ProductCard key={p.id} product={p} accentColor={theme.accent_color} grid outOfStock />)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {inStock.map((p) => <ProductCard key={p.id} product={p} accentColor={theme.accent_color} />)}
+                {outOfStock.length > 0 && inStock.length > 0 && (
+                  <p className="text-xs opacity-40 pt-2 pb-1">Sin stock actualmente:</p>
+                )}
+                {outOfStock.map((p) => <ProductCard key={p.id} product={p} accentColor={theme.accent_color} outOfStock />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="rounded-2xl p-5 text-center" style={{ backgroundColor: theme.primary_color }}>
+          <p className="text-white/70 text-sm mb-3">¿Eres tostador de café artesanal?</p>
+          <Link to="/register"
+            className="block w-full bg-white font-semibold rounded-xl py-3 hover:opacity-90 transition-opacity text-sm"
+            style={{ color: theme.primary_color }}>
+            Crea tu catálogo gratis en Tostapp →
+          </Link>
+        </div>
+
+        <p className="text-center text-xs opacity-30">Catálogo generado con Tostapp</p>
+      </div>
+    </div>
+  );
 }
+
+function ProductCard({
+  product: p,
+  accentColor,
+  grid = false,
+  outOfStock = false,
+}: {
+  product: ShopProduct;
+  accentColor: string;
+  grid?: boolean;
+  outOfStock?: boolean;
+}) {
+  return (
+    <div className={`bg-white/80 rounded-2xl border border-black/10 ${grid ? "p-3" : "p-4 flex gap-3"} ${outOfStock ? "opacity-50" : ""}`}>
+      {!grid && (
+        <div className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-lg shrink-0">☕</div>
+      )}
+      {grid && <div className="text-3xl mb-2 text-center">☕</div>}
+      <div className={grid ? "text-center" : "flex-1 min-w-0"}>
+        <p className={`font-medium text-sm ${grid ? "mb-1" : ""}`}>{p.name}</p>
+        {p.description && !grid && (
+          <p className="text-xs opacity-60 mt-0.5 line-clamp-2">{p.description}</p>
+        )}
+        <div className={`flex items-center gap-3 mt-1.5 ${grid ? "justify-center" : ""}`}>
+          <span className="text-sm font-semibold" style={{ color: accentColor }}>
+            {fmt(p.price)} / {p.unit}
+          </span>
+          <span className={`text-xs font-medium ${outOfStock ? "text-red-500" : "text-emerald-600"}`}>
+            {outOfStock ? "Sin stock" : "Disponible"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 2: Crear PublicShopPage.tsx (thin wrapper)**
+
+```tsx
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { api, type ShopPublic } from "../lib/api";
+import ShopLayout from "../components/ShopLayout";
 
 export default function PublicShopPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -580,141 +743,21 @@ export default function PublicShopPage() {
       <p className="text-stone-500 dark:text-stone-400">Esta tostería no existe o no está disponible.</p>
     </div>
   );
-
   if (!shop) return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  const whatsappUrl = shop.whatsapp_number
-    ? `https://wa.me/${shop.whatsapp_number.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hola, me interesa comprar café de ${shop.roastery_name}`)}`
-    : null;
-
-  const inStock = shop.products.filter((p) => p.stock_quantity > 0);
-  const outOfStock = shop.products.filter((p) => p.stock_quantity <= 0);
-
-  return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
-      <div className="max-w-lg mx-auto px-4 py-10 space-y-6">
-
-        {/* Header */}
-        <div className="text-center space-y-2">
-          {shop.business_logo && (
-            <div className="w-20 h-20 mx-auto rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-700 mb-4">
-              <img src={shop.business_logo} alt={shop.roastery_name} className="w-full h-full object-contain p-2" />
-            </div>
-          )}
-          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100">{shop.roastery_name}</h1>
-          {(shop.business_city || shop.business_country) && (
-            <p className="text-sm text-stone-500 dark:text-stone-400">
-              {[shop.business_city, shop.business_country].filter(Boolean).join(", ")}
-            </p>
-          )}
-          {shop.business_website && (
-            <a
-              href={shop.business_website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-amber-700 dark:text-amber-400 hover:underline"
-            >
-              {shop.business_website.replace(/^https?:\/\//, "")}
-            </a>
-          )}
-        </div>
-
-        {/* WhatsApp CTA */}
-        {whatsappUrl && (
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-2xl py-3.5 transition-colors text-sm"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-            </svg>
-            Pedir por WhatsApp
-          </a>
-        )}
-
-        {/* Products */}
-        {shop.products.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800">
-            <div className="text-4xl mb-3">☕</div>
-            <p className="text-stone-500 dark:text-stone-400 text-sm">Esta tostería aún no ha publicado su catálogo.</p>
-          </div>
-        ) : (
-          <div>
-            <h2 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
-              Catálogo
-            </h2>
-            <div className="space-y-2">
-              {inStock.map((p) => <ProductCard key={p.id} product={p} />)}
-              {outOfStock.length > 0 && inStock.length > 0 && (
-                <p className="text-xs text-stone-400 dark:text-stone-500 pt-2 pb-1">Sin stock actualmente:</p>
-              )}
-              {outOfStock.map((p) => <ProductCard key={p.id} product={p} />)}
-            </div>
-          </div>
-        )}
-
-        {/* CTA Tostapp */}
-        <div className="bg-amber-800 dark:bg-amber-700 rounded-2xl p-5 text-center">
-          <p className="text-amber-200 text-sm mb-3">¿Eres tostador de café artesanal?</p>
-          <Link
-            to="/register"
-            className="block w-full bg-white text-amber-900 font-semibold rounded-xl py-3 hover:bg-amber-50 transition-colors text-sm"
-          >
-            Crea tu catálogo gratis en Tostapp →
-          </Link>
-        </div>
-
-        <p className="text-center text-xs text-stone-400 dark:text-stone-600">
-          Catálogo generado con Tostapp
-        </p>
-      </div>
-    </div>
-  );
+  return <ShopLayout shop={shop} />;
 }
-
-function ProductCard({ product: p }: { product: ShopProduct }) {
-  const outOfStock = p.stock_quantity <= 0;
-  return (
-    <div className={`bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 flex gap-3 ${outOfStock ? "opacity-60" : ""}`}>
-      <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-lg shrink-0">
-        ☕
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-stone-900 dark:text-stone-100 text-sm">{p.name}</p>
-        {p.description && (
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 line-clamp-2">{p.description}</p>
-        )}
-        <div className="flex items-center gap-3 mt-1.5">
-          <span className="text-sm font-semibold text-stone-800 dark:text-stone-200">
-            {fmt(p.price)} / {p.unit}
-          </span>
-          <span className={`text-xs font-medium ${outOfStock ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-            {outOfStock ? "Sin stock" : "Disponible"}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// stockColor imported but only used in ProductCard now via inline logic — helper kept for potential future use
-const _unused = stockColor;
-void _unused;
 ```
 
-**Nota:** La variable `stockColor` quedó sin uso después de refactor. Si el linter la marca, eliminar la función y las 2 líneas `_unused` del final.
-
-- [ ] **Step 2: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add frontend/src/pages/PublicShopPage.tsx
-git commit -m "feat: add PublicShopPage - public product catalog at /tienda/:slug"
+git add frontend/src/components/ShopLayout.tsx frontend/src/pages/PublicShopPage.tsx
+git commit -m "feat: ShopLayout component + PublicShopPage thin wrapper with theme support"
 ```
 
 ---
@@ -750,11 +793,10 @@ Resultado esperado: build exitoso.
 - [ ] **Step 3: Smoke test**
 
 ```bash
-# Obtener slug de un usuario de prueba
 docker compose exec db psql -U postgres tostapp -c "SELECT roastery_slug FROM users LIMIT 1;"
 ```
 
-Abrir `http://localhost:5173/tienda/<slug>` en el navegador. Resultado esperado: página de catálogo con nombre de la tostería.
+Abrir `http://localhost:5173/tienda/<slug>` en el navegador. Resultado esperado: página de catálogo con nombre de la tostería y colores por defecto (marrón café).
 
 - [ ] **Step 4: Commit**
 
@@ -962,15 +1004,623 @@ docker compose exec backend ruff check app/
 
 Resultado esperado: sin errores.
 
-- [ ] **Step 4: Limpiar publicShopPage de variable sin uso**
+- [ ] **Step 4: Push**
 
-En `frontend/src/pages/PublicShopPage.tsx`, si el linter marca `stockColor` como no usado, eliminar la función `stockColor` y las líneas:
-```tsx
-const _unused = stockColor;
-void _unused;
+```bash
+git push origin main
 ```
 
-- [ ] **Step 5: Push**
+---
+
+## Task 12: Migración — columna shop_theme JSONB
+
+**Files:**
+- Create: `backend/migrations/versions/0012_shop_theme.py`
+
+- [ ] **Step 1: Escribir la migración**
+
+```python
+# backend/migrations/versions/0012_shop_theme.py
+"""add shop_theme jsonb to users
+
+Revision ID: 0012
+Revises: 0011
+Create Date: 2026-06-15
+"""
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects.postgresql import JSONB
+
+revision: str = "0012"
+down_revision: Union[str, None] = "0011"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.add_column("users", sa.Column("shop_theme", JSONB, nullable=True))
+
+
+def downgrade() -> None:
+    op.drop_column("users", "shop_theme")
+```
+
+- [ ] **Step 2: Aplicar la migración**
+
+```bash
+docker compose exec backend alembic upgrade head
+```
+
+Resultado esperado:
+```
+INFO  [alembic.runtime.migration] Running upgrade 0011 -> 0012, add shop_theme jsonb to users
+```
+
+- [ ] **Step 3: Añadir shop_theme al modelo User**
+
+En `backend/app/models/user.py`, importar JSONB si no está ya:
+
+```python
+from sqlalchemy.dialects.postgresql import JSONB
+```
+
+Añadir la columna después de `whatsapp_number`:
+
+```python
+shop_theme: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+```
+
+- [ ] **Step 4: Test**
+
+Añadir en `backend/tests/test_tienda_publica.py`:
+
+```python
+def test_user_has_shop_theme():
+    columns = {c.name for c in User.__table__.columns}
+    assert "shop_theme" in columns
+```
+
+```bash
+docker compose exec backend pytest tests/test_tienda_publica.py::test_user_has_shop_theme -v
+```
+
+Resultado esperado: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/migrations/versions/0012_shop_theme.py backend/app/models/user.py backend/tests/test_tienda_publica.py
+git commit -m "feat: add shop_theme JSONB column to users"
+```
+
+---
+
+## Task 13: Backend — ShopTheme schema + actualizar endpoint tienda
+
+**Files:**
+- Create: `backend/app/schemas/shop.py`
+- Modify: `backend/app/routes/shop.py`
+
+- [ ] **Step 1: Crear backend/app/schemas/shop.py**
+
+```python
+# backend/app/schemas/shop.py
+import re
+from typing import Literal, Optional
+
+from pydantic import BaseModel, field_validator
+
+
+HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+class ShopTheme(BaseModel):
+    primary_color: str = "#92400e"
+    accent_color: str = "#d97706"
+    bg_color: str = "#fafaf9"
+    text_color: str = "#1c1917"
+    font_family: Literal["sans", "serif", "mono"] = "sans"
+    layout: Literal["list", "grid"] = "list"
+    about_text: Optional[str] = None
+    banner_image: Optional[str] = None
+    instagram_url: Optional[str] = None
+    facebook_url: Optional[str] = None
+
+    @field_validator("primary_color", "accent_color", "bg_color", "text_color")
+    @classmethod
+    def must_be_hex(cls, v: str) -> str:
+        if not HEX_RE.match(v):
+            raise ValueError(f"'{v}' is not a valid hex color (#rrggbb)")
+        return v
+
+    @field_validator("about_text")
+    @classmethod
+    def max_500_chars(cls, v: Optional[str]) -> Optional[str]:
+        if v and len(v) > 500:
+            raise ValueError("about_text must be 500 characters or fewer")
+        return v
+
+    model_config = {"extra": "ignore"}
+```
+
+- [ ] **Step 2: Actualizar ShopPublic en routes/shop.py para incluir theme**
+
+En `backend/app/routes/shop.py`:
+
+1. Añadir import de `ShopTheme`:
+```python
+from app.schemas.shop import ShopTheme
+```
+
+2. Añadir campo `theme` a `ShopPublic`:
+```python
+class ShopPublic(BaseModel):
+    roastery_name: str
+    roastery_slug: str
+    business_city: Optional[str]
+    business_country: Optional[str]
+    business_logo: Optional[str]
+    business_website: Optional[str]
+    whatsapp_number: Optional[str]
+    theme: ShopTheme
+    products: list[ShopProduct]
+```
+
+3. Actualizar el return de `get_shop` para incluir el tema:
+```python
+theme = ShopTheme(**(user.shop_theme or {}))
+return ShopPublic(
+    roastery_name=user.roastery_name,
+    roastery_slug=user.roastery_slug,
+    business_city=user.business_city,
+    business_country=user.business_country,
+    business_logo=user.business_logo,
+    business_website=user.business_website,
+    whatsapp_number=user.whatsapp_number,
+    theme=theme,
+    products=[ShopProduct.model_validate(p) for p in products],
+)
+```
+
+- [ ] **Step 3: Tests del schema**
+
+Añadir en `backend/tests/test_tienda_publica.py`:
+
+```python
+def test_shop_theme_defaults():
+    from app.schemas.shop import ShopTheme
+    t = ShopTheme()
+    assert t.primary_color == "#92400e"
+    assert t.layout == "list"
+    assert t.font_family == "sans"
+
+
+def test_shop_theme_hex_validation():
+    from app.schemas.shop import ShopTheme
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        ShopTheme(primary_color="red")      # no hex
+    with pytest.raises(ValidationError):
+        ShopTheme(primary_color="#gggggg")  # invalid hex chars
+
+
+def test_shop_theme_about_text_max():
+    from app.schemas.shop import ShopTheme
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        ShopTheme(about_text="x" * 501)
+
+
+def test_shop_theme_partial_override():
+    from app.schemas.shop import ShopTheme
+    t = ShopTheme(primary_color="#ff0000")
+    assert t.primary_color == "#ff0000"
+    assert t.accent_color == "#d97706"  # default intact
+
+
+def test_shop_public_has_theme():
+    from app.routes.shop import ShopPublic
+    assert "theme" in ShopPublic.model_fields
+```
+
+- [ ] **Step 4: Correr tests**
+
+```bash
+docker compose exec backend pytest tests/test_tienda_publica.py -v
+```
+
+Resultado esperado: todos PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/app/schemas/shop.py backend/app/routes/shop.py backend/tests/test_tienda_publica.py
+git commit -m "feat: ShopTheme Pydantic schema with hex validation + expose theme in shop endpoint"
+```
+
+---
+
+## Task 14: Frontend — interfaces ShopTheme + actualizar api.ts
+
+**Files:**
+- Modify: `frontend/src/lib/api.ts`
+
+- [ ] **Step 1: Añadir interfaz ShopTheme**
+
+En `frontend/src/lib/api.ts`, añadir junto a `ShopPublic` y `ShopProduct`:
+
+```typescript
+export interface ShopTheme {
+  primary_color: string;
+  accent_color: string;
+  bg_color: string;
+  text_color: string;
+  font_family: "sans" | "serif" | "mono";
+  layout: "list" | "grid";
+  about_text?: string;
+  banner_image?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+}
+```
+
+- [ ] **Step 2: Actualizar ShopPublic para incluir theme**
+
+Localizar `export interface ShopPublic` y añadir el campo:
+
+```typescript
+export interface ShopPublic {
+  roastery_name: string;
+  roastery_slug: string;
+  business_city?: string;
+  business_country?: string;
+  business_logo?: string;
+  business_website?: string;
+  whatsapp_number?: string;
+  theme: ShopTheme;
+  products: ShopProduct[];
+}
+```
+
+- [ ] **Step 3: Añadir shop_theme a BusinessProfile**
+
+Localizar `export interface BusinessProfile` y añadir:
+
+```typescript
+export interface BusinessProfile {
+  roastery_name: string;
+  business_address?: string;
+  business_phone?: string;
+  business_email?: string;
+  business_tax_id?: string;
+  business_logo?: string;
+  business_website?: string;
+  business_city?: string;
+  business_country?: string;
+  roastery_slug?: string;
+  whatsapp_number?: string;
+  shop_theme?: ShopTheme;
+}
+```
+
+- [ ] **Step 4: Añadir shop_theme a BusinessProfileUpdate del backend**
+
+En `backend/app/schemas/document.py`, añadir import de ShopTheme:
+
+```python
+from app.schemas.shop import ShopTheme
+```
+
+Añadir el campo a `BusinessProfileUpdate`:
+
+```python
+class BusinessProfileUpdate(BaseModel):
+    # ... campos existentes ...
+    shop_theme: Optional[ShopTheme] = None
+```
+
+Y a `BusinessProfileOut`:
+
+```python
+class BusinessProfileOut(BaseModel):
+    # ... campos existentes ...
+    shop_theme: Optional[dict] = None
+```
+
+- [ ] **Step 5: Verificar TypeScript**
+
+```bash
+docker compose exec frontend npm run build 2>&1 | tail -10
+```
+
+Resultado esperado: sin errores.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add frontend/src/lib/api.ts backend/app/schemas/document.py
+git commit -m "feat: add ShopTheme TypeScript interface + shop_theme to BusinessProfile API"
+```
+
+---
+
+## Task 15: Frontend — ThemeEditor en BusinessProfilePage
+
+**Files:**
+- Modify: `frontend/src/pages/BusinessProfilePage.tsx`
+
+El ThemeEditor tiene dos partes: (1) controles de edición (color pickers, selector de layout, about text), y (2) preview en vivo via `<ShopLayout>` escalado al 45%.
+
+- [ ] **Step 1: Añadir state local para draftTheme**
+
+Al inicio de `BusinessProfilePage.tsx`, después de los imports existentes añadir:
+
+```tsx
+import ShopLayout from "../components/ShopLayout";
+import { type ShopTheme } from "../lib/api";
+```
+
+Dentro del componente, añadir state del tema borrador:
+
+```tsx
+const [draftTheme, setDraftTheme] = useState<ShopTheme>({
+  primary_color: "#92400e",
+  accent_color: "#d97706",
+  bg_color: "#fafaf9",
+  text_color: "#1c1917",
+  font_family: "sans",
+  layout: "list",
+  ...(profile.shop_theme ?? {}),
+});
+
+const setTheme = <K extends keyof ShopTheme>(key: K, value: ShopTheme[K]) =>
+  setDraftTheme((t) => ({ ...t, [key]: value }));
+```
+
+Inicializar cuando el perfil carga (en el `useEffect` que hace el fetch):
+
+```tsx
+useEffect(() => {
+  api.profile.get().then((p) => {
+    setProfile(p);
+    setDraftTheme({ ...DEFAULT_THEME, ...(p.shop_theme ?? {}) });
+  });
+}, []);
+```
+
+Donde `DEFAULT_THEME` es la misma constante que en ShopLayout:
+
+```tsx
+const DEFAULT_THEME: ShopTheme = {
+  primary_color: "#92400e",
+  accent_color: "#d97706",
+  bg_color: "#fafaf9",
+  text_color: "#1c1917",
+  font_family: "sans",
+  layout: "list",
+};
+```
+
+- [ ] **Step 2: Incluir draftTheme en el submit**
+
+En la función `handleSubmit`, añadir `shop_theme: draftTheme` al objeto enviado:
+
+```tsx
+await api.profile.update({ ...profile, shop_theme: draftTheme });
+```
+
+- [ ] **Step 3: Añadir la sección ThemeEditor al formulario**
+
+Después de la sección "Tienda pública" (slug + whatsapp), añadir una nueva sección con los controles:
+
+```tsx
+{/* Tema de la tienda */}
+<div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-5">
+  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+    Apariencia de tu tienda
+  </p>
+
+  {/* Colores */}
+  <div className="grid grid-cols-2 gap-4">
+    {(["primary_color", "accent_color", "bg_color", "text_color"] as const).map((key) => (
+      <label key={key} className="flex flex-col gap-1">
+        <span className="text-xs text-stone-500 dark:text-stone-400">
+          {{ primary_color: "Color principal", accent_color: "Color de acento", bg_color: "Fondo", text_color: "Texto" }[key]}
+        </span>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={draftTheme[key]}
+            onChange={(e) => setTheme(key, e.target.value)}
+            className="w-8 h-8 rounded cursor-pointer border border-stone-300 dark:border-stone-600"
+          />
+          <span className="text-xs font-mono text-stone-500">{draftTheme[key]}</span>
+        </div>
+      </label>
+    ))}
+  </div>
+
+  {/* Paletas preset para café */}
+  <div>
+    <p className="text-xs text-stone-400 dark:text-stone-500 mb-2">Paletas rápidas:</p>
+    <div className="flex gap-2 flex-wrap">
+      {[
+        { name: "Café clásico", primary_color: "#92400e", accent_color: "#d97706", bg_color: "#fafaf9", text_color: "#1c1917" },
+        { name: "Oscuro elegante", primary_color: "#d97706", accent_color: "#fbbf24", bg_color: "#1c1917", text_color: "#fafaf9" },
+        { name: "Verde naturaleza", primary_color: "#166534", accent_color: "#22c55e", bg_color: "#f0fdf4", text_color: "#14532d" },
+        { name: "Slate moderno", primary_color: "#1e293b", accent_color: "#3b82f6", bg_color: "#f8fafc", text_color: "#0f172a" },
+        { name: "Terracota", primary_color: "#9a3412", accent_color: "#ea580c", bg_color: "#fff7ed", text_color: "#431407" },
+        { name: "Lavanda suave", primary_color: "#6d28d9", accent_color: "#a78bfa", bg_color: "#faf5ff", text_color: "#2e1065" },
+      ].map((preset) => (
+        <button
+          key={preset.name}
+          type="button"
+          onClick={() => setDraftTheme((t) => ({ ...t, ...preset }))}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+          style={{ borderLeftColor: preset.primary_color, borderLeftWidth: 3 }}
+        >
+          {preset.name}
+        </button>
+      ))}
+    </div>
+  </div>
+
+  {/* Tipografía */}
+  <div className="flex gap-3">
+    {(["sans", "serif", "mono"] as const).map((f) => (
+      <button
+        key={f}
+        type="button"
+        onClick={() => setTheme("font_family", f)}
+        className={`flex-1 py-2 rounded-xl border text-sm transition-colors ${
+          draftTheme.font_family === f
+            ? "border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-medium"
+            : "border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400"
+        }`}
+      >
+        {{ sans: "Sans-serif", serif: "Serif", mono: "Monoespaciada" }[f]}
+      </button>
+    ))}
+  </div>
+
+  {/* Layout */}
+  <div className="flex gap-3">
+    {(["list", "grid"] as const).map((l) => (
+      <button
+        key={l}
+        type="button"
+        onClick={() => setTheme("layout", l)}
+        className={`flex-1 py-2 rounded-xl border text-sm transition-colors ${
+          draftTheme.layout === l
+            ? "border-amber-600 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-medium"
+            : "border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400"
+        }`}
+      >
+        {{ list: "Lista vertical", grid: "Cuadrícula" }[l]}
+      </button>
+    ))}
+  </div>
+
+  {/* About text */}
+  <Field label="Texto sobre la tostería (máx. 500 caracteres)">
+    <textarea
+      rows={3}
+      placeholder="Somos una tostería artesanal fundada en..."
+      value={draftTheme.about_text ?? ""}
+      onChange={(e) => setTheme("about_text", e.target.value.slice(0, 500))}
+      className={`${inputCls} resize-none`}
+    />
+    <p className="text-xs text-stone-400 dark:text-stone-500 mt-1 text-right">
+      {(draftTheme.about_text ?? "").length}/500
+    </p>
+  </Field>
+
+  {/* Instagram */}
+  <Field label="URL de Instagram (opcional)">
+    <input
+      type="url"
+      placeholder="https://instagram.com/mi_tosteria"
+      value={draftTheme.instagram_url ?? ""}
+      onChange={(e) => setTheme("instagram_url", e.target.value)}
+      className={inputCls}
+    />
+  </Field>
+</div>
+```
+
+- [ ] **Step 4: Añadir el preview en vivo**
+
+Después del bloque del ThemeEditor y antes del botón "Guardar cambios", añadir el preview escalado. Hay que construir un `ShopPublic` de prueba con el `draftTheme`:
+
+```tsx
+{/* Preview en vivo */}
+<div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5">
+  <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
+    Vista previa de tu tienda
+  </p>
+  <div className="relative w-full overflow-hidden rounded-xl border border-stone-200 dark:border-stone-700" style={{ height: "380px" }}>
+    <div style={{ transform: "scale(0.45)", transformOrigin: "top left", width: "222%", pointerEvents: "none" }}>
+      <ShopLayout
+        shop={{
+          roastery_name: profile.roastery_name || "Mi Tostería",
+          roastery_slug: profile.roastery_slug ?? "mi-tosteria",
+          business_city: profile.business_city ?? undefined,
+          business_country: profile.business_country ?? undefined,
+          business_logo: profile.business_logo ?? undefined,
+          business_website: profile.business_website ?? undefined,
+          whatsapp_number: profile.whatsapp_number ?? undefined,
+          theme: draftTheme,
+          products: [],
+        }}
+      />
+    </div>
+  </div>
+  <p className="text-xs text-stone-400 dark:text-stone-500 mt-2 text-center">
+    Vista previa a escala — así se verá tu catálogo en <code>/tienda/{profile.roastery_slug ?? "tu-slug"}</code>
+  </p>
+</div>
+```
+
+- [ ] **Step 5: Verificar TypeScript**
+
+```bash
+docker compose exec frontend npm run build 2>&1 | tail -10
+```
+
+Resultado esperado: sin errores de tipo.
+
+- [ ] **Step 6: Smoke test del ThemeEditor**
+
+1. Ir a `http://localhost:5173/profile` como usuario autenticado
+2. Hacer scroll hasta la sección "Apariencia de tu tienda"
+3. Cambiar un color con el color picker → el preview debajo cambia en tiempo real
+4. Seleccionar una paleta preset → preview se actualiza con todos los colores
+5. Cambiar tipografía a "Serif" → preview cambia font
+6. Cambiar layout a "Cuadrícula" → preview no cambia (sin productos) pero layout selector se activa
+7. Escribir texto en "Sobre la tostería" → aparece en el preview
+8. Guardar cambios
+9. Ir a `/tienda/<slug>` → verificar que los colores guardados se aplican
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add frontend/src/pages/BusinessProfilePage.tsx
+git commit -m "feat: ThemeEditor with live preview in BusinessProfilePage"
+```
+
+---
+
+## Task 16: Test de regresión final (con theming)
+
+- [ ] **Step 1: Correr todos los tests**
+
+```bash
+docker compose exec backend pytest tests/ -v
+```
+
+Resultado esperado: todos PASS — incluyendo `test_tienda_publica.py` con tests de `ShopTheme`.
+
+- [ ] **Step 2: Build frontend**
+
+```bash
+docker compose exec frontend npm run build 2>&1 | tail -10
+```
+
+Resultado esperado: sin errores.
+
+- [ ] **Step 3: Linting backend**
+
+```bash
+docker compose exec backend ruff check app/
+```
+
+Resultado esperado: sin errores.
+
+- [ ] **Step 4: Push**
 
 ```bash
 git push origin main
@@ -981,12 +1631,15 @@ git push origin main
 ## Flujo de usuario completo (verificación end-to-end)
 
 ```
-1. Tostador registra cuenta → roastery_slug auto-generado
-2. Tostador va a /profile → configura slug legible + whatsapp
-3. Tostador va a /products → añade productos con precio y stock
-4. Cliente escanea QR de bolsa → ve /r/:slug (página de tueste)
-5. Cliente ve link "Ver catálogo de [Tostería] →"
-6. Cliente va a /tienda/:slug → ve todos los productos
-7. Cliente toca botón verde WhatsApp → abre chat con mensaje pre-llenado
-8. Tostador recibe pedido por WhatsApp → gestiona venta offline
+1.  Tostador registra cuenta → roastery_slug auto-generado (ej: la-pausa-cafe-a3f7b9)
+2.  Tostador va a /profile → configura slug legible + número WhatsApp
+3.  Tostador personaliza tema → elige paleta, tipografía, layout, texto "sobre nosotros"
+4.  Preview en tiempo real muestra cómo quedará la tienda
+5.  Tostador guarda → colores/tema persisten en shop_theme JSONB
+6.  Tostador va a /products → añade productos con precio y stock
+7.  Cliente escanea QR de bolsa → ve /r/:slug (página de tueste)
+8.  Cliente ve link "Ver catálogo de [Tostería] →"
+9.  Cliente va a /tienda/:slug → ve catálogo con colores y layout personalizados
+10. Cliente toca botón WhatsApp (con color del tema) → abre chat con mensaje pre-llenado
+11. Tostador recibe pedido por WhatsApp → gestiona venta offline
 ```

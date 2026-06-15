@@ -22,6 +22,7 @@ import DocumentFormPage from "./pages/DocumentFormPage";
 import DocumentDetailPage from "./pages/DocumentDetailPage";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
 import ProductsPage from "./pages/ProductsPage";
+import PublicShopPage from "./pages/PublicShopPage";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -42,6 +43,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/r/:slug" element={<PublicRoastPage />} />
+        <Route path="/tienda/:slug" element={<PublicShopPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/roasts/new" element={<PrivateRoute><NewRoastPage /></PrivateRoute>} />

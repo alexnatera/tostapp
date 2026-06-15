@@ -130,6 +130,7 @@ export const api = {
   public: {
     roast: (slug: string) => req<RoastPublic>(`/r/${slug}`),
     qrUrl: (slug: string) => `${BASE}/r/${slug}/qr.png`,
+    shop: (slug: string) => req<ShopPublic>(`/tienda/${slug}`),
   },
   products: {
     list: (search?: string) => req<ProductList>(`/products${search ? `?search=${encodeURIComponent(search)}&limit=100` : "?limit=100"}`),
@@ -336,6 +337,9 @@ export interface BusinessProfile {
   business_website?: string;
   business_city?: string;
   business_country?: string;
+  roastery_slug?: string;
+  whatsapp_number?: string;
+  shop_theme?: ShopTheme;
 }
 
 export interface DocumentItem {
@@ -374,6 +378,7 @@ export interface DocumentList { items: Document_[]; total: number; }
 export interface RoastPublic {
   slug: string;
   roastery_name: string;
+  roastery_slug?: string;
   bean_origin: string;
   farm?: string;
   variety?: string;
@@ -383,4 +388,38 @@ export interface RoastPublic {
   tasting_notes?: string;
   roaster_notes?: string;
   batch_number: number;
+}
+
+export interface ShopTheme {
+  primary_color: string;
+  accent_color: string;
+  bg_color: string;
+  text_color: string;
+  font_family: "sans" | "serif" | "mono";
+  layout: "list" | "grid";
+  about_text?: string;
+  banner_image?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+}
+
+export interface ShopProduct {
+  id: string;
+  name: string;
+  description?: string;
+  unit: string;
+  price: number;
+  stock_quantity: number;
+}
+
+export interface ShopPublic {
+  roastery_name: string;
+  roastery_slug: string;
+  business_city?: string;
+  business_country?: string;
+  business_logo?: string;
+  business_website?: string;
+  whatsapp_number?: string;
+  theme: ShopTheme;
+  products: ShopProduct[];
 }

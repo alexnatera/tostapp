@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     email_from: str = "Tostapp <noreply@tostapp.app>"
     email_verification_required: bool = False
+    admin_email: str = ""
 
     class Config:
         env_file = ".env"

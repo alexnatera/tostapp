@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from app.core.database import Base
 from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
@@ -40,6 +41,11 @@ class User(Base):
     business_website: Mapped[str | None] = mapped_column(String(255))
     business_city: Mapped[str | None] = mapped_column(String(100))
     business_country: Mapped[str | None] = mapped_column(String(100))
+
+    # Public shop
+    roastery_slug: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
+    whatsapp_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    shop_theme: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     roasts: Mapped[list["Roast"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
     purchases: Mapped[list["Purchase"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821

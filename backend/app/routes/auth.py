@@ -1,4 +1,7 @@
+import re
 import secrets
+import unicodedata
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from app.core.config import settings
@@ -24,6 +27,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+def _make_roastery_slug(name: str) -> str:
+    normalized = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    base = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-") or "tostadora"
+    return f"{base}-{uuid.uuid4().hex[:6]}"
+
+
 def _generate_code() -> str:
     """6-digit verification code."""
     return str(secrets.randbelow(900000) + 100000)
@@ -47,6 +56,7 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
         email=payload.email,
         hashed_password=hash_password(payload.password),
         roastery_name=payload.roastery_name,
+        roastery_slug=_make_roastery_slug(payload.roastery_name),
         is_admin=bool(settings.admin_email and payload.email == settings.admin_email),
         verification_code=verification_code,
         verification_code_expires=code_expires,

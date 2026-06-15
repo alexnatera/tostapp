@@ -1,5 +1,5 @@
 from app.core.config import settings
-from app.routes import admin, artisan, auth, customers, documents, finance, inventory, products, purchases, roasts, sales, suppliers
+from app.routes import admin, artisan, auth, customers, documents, finance, inventory, products, purchases, roasts, sales, shop, suppliers
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -34,6 +34,7 @@ app.include_router(suppliers.router)
 app.include_router(inventory.router)
 app.include_router(documents.router)
 app.include_router(products.router)
+app.include_router(shop.router)
 
 
 @app.get("/health")

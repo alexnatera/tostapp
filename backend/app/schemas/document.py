@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -89,6 +89,9 @@ class BusinessProfileOut(BaseModel):
     business_website: Optional[str]
     business_city: Optional[str]
     business_country: Optional[str]
+    roastery_slug: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    shop_theme: Optional[Dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
 
@@ -103,3 +106,6 @@ class BusinessProfileUpdate(BaseModel):
     business_website: Optional[str] = None
     business_city: Optional[str] = None
     business_country: Optional[str] = None
+    roastery_slug: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    shop_theme: Optional[Dict[str, Any]] = None

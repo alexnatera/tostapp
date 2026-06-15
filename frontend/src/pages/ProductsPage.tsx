@@ -87,9 +87,7 @@ export default function ProductsPage() {
   async function handleAdjust(id: string) {
     const delta = Number(adjustDelta);
     if (isNaN(delta) || delta === 0) return;
-    const updated = await api.products.update(id, {
-      stock_quantity: (products.find((p) => p.id === id)?.stock_quantity ?? 0) + delta,
-    });
+    const updated = await api.products.adjustStock(id, delta);
     setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setAdjustId(null);
     setAdjustDelta("");

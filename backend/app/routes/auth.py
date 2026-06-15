@@ -1,8 +1,11 @@
+import logging
 import re
 import secrets
 import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -65,7 +68,8 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
     db.commit()
     db.refresh(user)
 
-    send_verification_email(user.email, verification_code)
+    if not send_verification_email(user.email, verification_code):
+        logger.warning("Failed to send verification email to %s", user.email)
 
     return user
 
@@ -166,7 +170,8 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Sessio
         db.commit()
 
         reset_url = f"{settings.frontend_url}/reset-password?token={user.reset_token}"
-        send_reset_email(user.email, reset_url)
+        if not send_reset_email(user.email, reset_url):
+            logger.warning("Failed to send reset email to %s", user.email)
 
     return {"message": "Si el email existe, recibirás un link para restablecer tu contraseña."}
 

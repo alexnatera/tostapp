@@ -145,6 +145,8 @@ export const api = {
     create: (data: ProductCreate) => req<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Partial<ProductCreate>) =>
       req<Product>(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    adjustStock: (id: string, delta: number) =>
+      req<Product>(`/products/${id}/stock?delta=${delta}`, { method: "PATCH" }),
     delete: (id: string) => req<void>(`/products/${id}`, { method: "DELETE" }),
   },
   profile: {

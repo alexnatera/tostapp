@@ -6,6 +6,12 @@ class Settings(BaseSettings):
     database_url: str
     secret_key: str
     algorithm: str = "HS256"
+    # 7-day tokens with no server-side revocation. Trade-offs:
+    # - Pros: stateless, no Redis dependency, simple for beta
+    # - Cons: suspension/password-change can't invalidate active tokens until expiry
+    # C2 fix (is_active check on every request) mitigates suspension gap.
+    # For full revocation: add a token_version int column on User and bump it on
+    # suspend/password-change; reject tokens with stale version in get_current_user.
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     frontend_url: str = Field(default="http://localhost:5173", validation_alias="APP_URL")
 

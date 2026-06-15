@@ -114,11 +114,7 @@ export default function DashboardPage() {
           </div>
         ) : roasts.length === 0 ? (
           <div className="text-center py-10">
-            <img
-              src="/images/empty-state-cup.jpg"
-              alt="Sin tuestes"
-              className="w-40 h-40 object-cover rounded-2xl mx-auto mb-5 shadow-md opacity-90"
-            />
+            <div className="text-6xl mb-5">☕</div>
             <p className="text-stone-600 dark:text-stone-400 font-medium mb-1">Sin tuestes aún</p>
             <p className="text-stone-400 dark:text-stone-500 text-sm">Registra tu primer tueste o importa un archivo de Artisan.</p>
             <Link

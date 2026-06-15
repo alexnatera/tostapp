@@ -21,7 +21,7 @@ class Roast(Base):
     __table_args__ = (CheckConstraint("roast_level IN ('light', 'medium', 'dark')", name="ck_roasts_roast_level"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False, index=True)
     slug: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)  # used in QR URL
 
     # Bean info

@@ -8,32 +8,15 @@ from datetime import date
 import qrcode
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.models.roast import Roast
 from app.models.user import User
 from app.schemas.roast import RoastCreate, RoastList, RoastOut, RoastPublic
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 router = APIRouter(tags=["roasts"])
-bearer = HTTPBearer()
-
-
-def _current_user(
-    creds: HTTPAuthorizationCredentials = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> User:
-    try:
-        payload = jwt.decode(creds.credentials, settings.secret_key, algorithms=[settings.algorithm])
-        user_id = payload.get("sub")
-    except JWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token") from None
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
-    return user
 
 
 def _make_slug(origin: str, roast_date: date) -> str:
@@ -46,8 +29,10 @@ def _make_slug(origin: str, roast_date: date) -> str:
 def create_roast(
     payload: RoastCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(_current_user),
+    user: User = Depends(get_current_user),
 ):
+    # Lock user row to serialize batch_number assignment per user per date
+    db.query(User).filter(User.id == user.id).with_for_update().first()
     existing = (
         db.query(Roast)
         .filter(Roast.user_id == user.id, Roast.roast_date == payload.roast_date)
@@ -78,7 +63,7 @@ def list_roasts(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    user: User = Depends(_current_user),
+    user: User = Depends(get_current_user),
 ):
     base_q = db.query(Roast).filter(Roast.user_id == user.id)
     total = base_q.count()
@@ -95,7 +80,7 @@ def list_roasts(
 @router.get("/roasts/export")
 def export_roasts_csv(
     db: Session = Depends(get_db),
-    user: User = Depends(_current_user),
+    user: User = Depends(get_current_user),
 ):
     roasts = (
         db.query(Roast)
@@ -130,7 +115,7 @@ def export_roasts_csv(
 def get_roast(
     roast_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(_current_user),
+    user: User = Depends(get_current_user),
 ):
     roast = db.query(Roast).filter(Roast.id == roast_id, Roast.user_id == user.id).first()
     if not roast:
@@ -142,7 +127,7 @@ def get_roast(
 def delete_roast(
     roast_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(_current_user),
+    user: User = Depends(get_current_user),
 ):
     roast = db.query(Roast).filter(Roast.id == roast_id, Roast.user_id == user.id).first()
     if not roast:

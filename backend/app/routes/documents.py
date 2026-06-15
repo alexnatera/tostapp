@@ -1,3 +1,5 @@
+import re
+
 from app.core.deps import get_current_user
 from app.core.database import get_db
 from app.models.document import Document
@@ -10,6 +12,7 @@ from app.schemas.document import (
     DocumentOut,
     DocumentUpdate,
 )
+from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
@@ -17,6 +20,7 @@ from sqlalchemy.orm import Session
 router = APIRouter(tags=["documents"])
 
 _DOC_PREFIXES = {"presupuesto": "PRE", "boleta": "BOL", "factura": "FAC"}
+_SLUG_RE = re.compile(r"^[a-z0-9-]+$")
 
 
 def _next_number(db: Session, user_id: str, doc_type: str, year: int) -> str:
@@ -47,7 +51,19 @@ def update_business_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    for field, value in data.model_dump(exclude_none=True).items():
+    # Validate slug uniqueness and format when being changed
+    if data.roastery_slug is not None:
+        slug = data.roastery_slug
+        if slug and not _SLUG_RE.match(slug):
+            raise HTTPException(400, "El slug solo puede contener letras minúsculas, números y guiones")
+        if slug:
+            conflict = db.query(User).filter(
+                User.roastery_slug == slug, User.id != current_user.id
+            ).first()
+            if conflict:
+                raise HTTPException(409, "Ese slug ya está en uso por otra tostería")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(current_user, field, value)
     db.commit()
     db.refresh(current_user)
@@ -81,6 +97,8 @@ def create_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Lock user row to serialize doc number assignment and prevent duplicates
+    db.query(User).filter(User.id == current_user.id).with_for_update().first()
     doc_number = data.doc_number.strip() if data.doc_number else ""
     if not doc_number:
         doc_number = _next_number(db, current_user.id, data.doc_type, data.issue_date.year)
@@ -139,7 +157,6 @@ def update_document(
     for field, value in payload.items():
         setattr(doc, field, value)
 
-    from datetime import UTC, datetime
     doc.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(doc)

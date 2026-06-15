@@ -37,7 +37,9 @@ class ShopPublic(BaseModel):
 
 @router.get("/tienda/{roastery_slug}", response_model=ShopPublic)
 def get_shop(roastery_slug: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.roastery_slug == roastery_slug).first()
+    user = db.query(User).filter(
+        User.roastery_slug == roastery_slug, User.is_active == True  # noqa: E712
+    ).first()
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tostería no encontrada")
     products = (

@@ -1,6 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type BusinessProfile } from "../lib/api";
+import { api, type BusinessProfile, type ShopPublic, type ShopTheme } from "../lib/api";
+import ShopLayout from "../components/ShopLayout";
+
+const DEFAULT_THEME: ShopTheme = {
+  primary_color: "#92400e",
+  accent_color: "#d97706",
+  bg_color: "#fafaf9",
+  text_color: "#1c1917",
+  font_family: "sans",
+  layout: "list",
+};
+
+const PRESETS: { name: string; theme: Partial<ShopTheme> }[] = [
+  { name: "Café", theme: { primary_color: "#92400e", accent_color: "#d97706", bg_color: "#fafaf9", text_color: "#1c1917" } },
+  { name: "Oscuro", theme: { primary_color: "#d97706", accent_color: "#fbbf24", bg_color: "#1c1917", text_color: "#fafaf9" } },
+  { name: "Verde", theme: { primary_color: "#166534", accent_color: "#15803d", bg_color: "#f0fdf4", text_color: "#14532d" } },
+  { name: "Cielo", theme: { primary_color: "#1e40af", accent_color: "#3b82f6", bg_color: "#eff6ff", text_color: "#1e3a5f" } },
+  { name: "Rosa", theme: { primary_color: "#9d174d", accent_color: "#ec4899", bg_color: "#fdf2f8", text_color: "#831843" } },
+  { name: "Minimal", theme: { primary_color: "#374151", accent_color: "#6b7280", bg_color: "#ffffff", text_color: "#111827" } },
+];
 
 export default function BusinessProfilePage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
@@ -49,6 +68,38 @@ export default function BusinessProfilePage() {
   function set(field: keyof BusinessProfile, value: string) {
     setProfile((p) => p ? { ...p, [field]: value } : p);
   }
+
+  function setTheme(patch: Partial<ShopTheme>) {
+    setProfile((p) => {
+      if (!p) return p;
+      const current: ShopTheme = { ...DEFAULT_THEME, ...(p.shop_theme ?? {}) };
+      return { ...p, shop_theme: { ...current, ...patch } };
+    });
+  }
+
+  const theme = useMemo<ShopTheme>(
+    () => ({ ...DEFAULT_THEME, ...(profile?.shop_theme ?? {}) }),
+    [profile?.shop_theme]
+  );
+
+  const previewShop = useMemo<ShopPublic | null>(() => {
+    if (!profile) return null;
+    return {
+      roastery_name: profile.roastery_name || "Tu tostadería",
+      roastery_slug: profile.roastery_slug ?? "preview",
+      business_city: profile.business_city,
+      business_country: profile.business_country,
+      business_logo: profile.business_logo,
+      business_website: profile.business_website,
+      whatsapp_number: profile.whatsapp_number,
+      theme,
+      products: [
+        { id: "1", name: "Ethiopia Yirgacheffe", description: "Floral, bergamota y té negro", unit: "250g", price: 8500, stock_quantity: 10 },
+        { id: "2", name: "Colombia Huila", description: "Caramelo, ciruela y nuez", unit: "250g", price: 7800, stock_quantity: 5 },
+        { id: "3", name: "Kenya AA", unit: "250g", price: 9200, stock_quantity: 0 },
+      ],
+    };
+  }, [profile, theme]);
 
   if (!profile) return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex items-center justify-center">
@@ -241,6 +292,145 @@ export default function BusinessProfilePage() {
               />
               <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">Los clientes podrán contactarte desde la tienda.</p>
             </Field>
+          </div>
+
+          {/* Theme editor */}
+          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-5">
+            <div>
+              <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Apariencia de la tienda</p>
+              <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">Personaliza los colores y el estilo de tu catálogo público.</p>
+            </div>
+
+            {/* Presets */}
+            <div>
+              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">Paletas prediseñadas</p>
+              <div className="grid grid-cols-3 gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => setTheme(p.theme)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:border-amber-400 dark:hover:border-amber-500 transition-colors text-xs font-medium text-stone-700 dark:text-stone-300"
+                  >
+                    <span className="flex gap-0.5 shrink-0">
+                      <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: p.theme.primary_color }} />
+                      <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: p.theme.accent_color }} />
+                      <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: p.theme.bg_color }} />
+                    </span>
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Colors */}
+            <div>
+              <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">Colores personalizados</p>
+              <div className="grid grid-cols-2 gap-3">
+                {(
+                  [
+                    ["Color primario", "primary_color"],
+                    ["Color de acento", "accent_color"],
+                    ["Fondo", "bg_color"],
+                    ["Texto", "text_color"],
+                  ] as [string, keyof ShopTheme][]
+                ).map(([label, key]) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={(theme[key] as string) ?? "#000000"}
+                      onChange={(e) => setTheme({ [key]: e.target.value })}
+                      className="w-8 h-8 rounded-lg border border-stone-200 dark:border-stone-700 cursor-pointer bg-transparent p-0.5"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs text-stone-600 dark:text-stone-400 truncate">{label}</p>
+                      <p className="text-xs text-stone-400 dark:text-stone-500 font-mono">{theme[key] as string}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Font + Layout */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">Tipografía</p>
+                <div className="flex flex-col gap-1.5">
+                  {(["sans", "serif", "mono"] as const).map((f) => (
+                    <label key={f} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="font_family"
+                        value={f}
+                        checked={theme.font_family === f}
+                        onChange={() => setTheme({ font_family: f })}
+                        className="accent-amber-600"
+                      />
+                      <span className={`text-sm text-stone-700 dark:text-stone-300 ${f === "sans" ? "font-sans" : f === "serif" ? "font-serif" : "font-mono"}`}>
+                        {f === "sans" ? "Sans-serif" : f === "serif" ? "Serif" : "Monospace"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">Layout</p>
+                <div className="flex flex-col gap-1.5">
+                  {(["list", "grid"] as const).map((l) => (
+                    <label key={l} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="layout"
+                        value={l}
+                        checked={theme.layout === l}
+                        onChange={() => setTheme({ layout: l })}
+                        className="accent-amber-600"
+                      />
+                      <span className="text-sm text-stone-700 dark:text-stone-300">
+                        {l === "list" ? "Lista" : "Cuadrícula"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* About text */}
+            <Field label={`Descripción de tu tostadería (${(theme.about_text ?? "").length}/500)`}>
+              <textarea
+                rows={3}
+                placeholder="Cuéntales a tus clientes sobre tu tostadería..."
+                value={theme.about_text ?? ""}
+                onChange={(e) => setTheme({ about_text: e.target.value.slice(0, 500) })}
+                className={`${inputCls} resize-none`}
+              />
+            </Field>
+
+            {/* Instagram */}
+            <Field label="Instagram URL">
+              <input
+                type="url"
+                placeholder="https://instagram.com/mitostaderia"
+                value={theme.instagram_url ?? ""}
+                onChange={(e) => setTheme({ instagram_url: e.target.value || undefined })}
+                className={inputCls}
+              />
+            </Field>
+
+            {/* Live preview */}
+            {previewShop && (
+              <div>
+                <p className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-2">Vista previa en vivo</p>
+                <div
+                  className="mx-auto overflow-hidden rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm"
+                  style={{ width: 195, height: 390 }}
+                >
+                  <div style={{ width: 390, transform: "scale(0.5)", transformOrigin: "top left", pointerEvents: "none" }}>
+                    <ShopLayout shop={previewShop} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (

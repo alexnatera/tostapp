@@ -11,7 +11,7 @@ function getToken(): string | null {
 
 function handleUnauthorized() {
   localStorage.removeItem("tostapp-auth");
-  if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/r/")) {
+  if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/r/") && !window.location.pathname.startsWith("/tienda/")) {
     window.location.href = "/login";
   }
 }

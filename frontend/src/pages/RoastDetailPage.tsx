@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft, Thermometer, AlertCircle } from "lucide-react";
 import { api, type Roast } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "../lib/toast";
 
 const levelLabel: Record<string, string> = { light: "Claro", medium: "Medio", dark: "Oscuro" };
 const levelDot: Record<string, string> = {
@@ -103,7 +105,7 @@ function RoastCurveChart({ profile }: { profile: Record<string, unknown> }) {
             <line x1={PL} x2={W - PR} y1={yS(v)} y2={yS(v)}
               stroke="currentColor" strokeOpacity="0.07" strokeWidth="1" />
             <text x={PL - 4} y={yS(v)} textAnchor="end" dominantBaseline="middle"
-              fontSize="8.5" fill="currentColor" fillOpacity="0.4">{Math.round(v)}°</text>
+              fontSize="11" fill="currentColor" fillOpacity="0.4">{Math.round(v)}°</text>
           </g>
         ))}
 
@@ -113,7 +115,7 @@ function RoastCurveChart({ profile }: { profile: Record<string, unknown> }) {
             <line x1={xS(m * 60)} x2={xS(m * 60)} y1={PT} y2={H - PB}
               stroke="currentColor" strokeOpacity="0.06" strokeWidth="1" />
             <text x={xS(m * 60)} y={H - PB + 11} textAnchor="middle"
-              fontSize="8.5" fill="currentColor" fillOpacity="0.4">{m}′</text>
+              fontSize="11" fill="currentColor" fillOpacity="0.4">{m}′</text>
           </g>
         ))}
 
@@ -169,7 +171,7 @@ function RoastCurveChart({ profile }: { profile: Record<string, unknown> }) {
                 stroke={ev.color} strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
               <circle cx={x} cy={y} r="4.5" fill={ev.color} opacity="0.9" />
               <circle cx={x} cy={y} r="7" fill={ev.color} fillOpacity="0.15" />
-              <text x={x} y={y - 11} textAnchor="middle" fontSize="9"
+              <text x={x} y={y - 11} textAnchor="middle" fontSize="12"
                 fill={ev.color} fontWeight="700">{ev.label}</text>
             </g>
           );
@@ -225,9 +227,9 @@ function PhaseTimeline({ profile }: { profile: Record<string, unknown> }) {
   const dtr     = hasFcs ? (devTime / total * 100).toFixed(1) : null;
 
   const phases = [
-    hasTp  ? { label: "Secado",     pct: dryEnd / total,        color: "bg-green-400 dark:bg-green-500",  dur: dryEnd } : null,
-    hasTp && hasFcs ? { label: "Maillard", pct: (mailEnd - dryEnd) / total, color: "bg-amber-400 dark:bg-amber-500", dur: mailEnd - dryEnd } : null,
-    hasFcs ? { label: "Desarrollo", pct: devTime / total,       color: "bg-red-400 dark:bg-red-500",      dur: devTime } : null,
+    hasTp  ? { label: "Secado",     pct: dryEnd / total,        color: "bg-green-500 dark:bg-green-600",  dur: dryEnd } : null,
+    hasTp && hasFcs ? { label: "Maillard", pct: (mailEnd - dryEnd) / total, color: "bg-amber-500 dark:bg-amber-600", dur: mailEnd - dryEnd } : null,
+    hasFcs ? { label: "Desarrollo", pct: devTime / total,       color: "bg-red-500 dark:bg-red-600",      dur: devTime } : null,
   ].filter(Boolean) as { label: string; pct: number; color: string; dur: number }[];
 
   if (!phases.length) return null;
@@ -258,9 +260,11 @@ function PhaseTimeline({ profile }: { profile: Record<string, unknown> }) {
               key={ph.label}
               className={`${ph.color} flex items-center justify-center transition-all`}
               style={{ width: `${(ph.pct * 100).toFixed(1)}%` }}
+              role="img"
+              aria-label={`${ph.label}: ${fmtTime(ph.dur)}`}
             >
               {ph.pct > 0.12 && (
-                <span className="text-[9px] font-bold text-white drop-shadow-sm truncate px-1">
+                <span className="text-[9px] font-bold text-white drop-shadow-sm truncate px-1" aria-hidden="true">
                   {ph.label}
                 </span>
               )}
@@ -270,7 +274,7 @@ function PhaseTimeline({ profile }: { profile: Record<string, unknown> }) {
         <div className="flex justify-between mt-1">
           {phases.map((ph) => (
             <div key={ph.label} className="text-center" style={{ width: `${(ph.pct * 100).toFixed(1)}%` }}>
-              <p className="text-[10px] text-stone-400 dark:text-stone-500 truncate px-0.5">
+              <p className="text-xs text-stone-500 dark:text-stone-400 truncate px-0.5">
                 {fmtTime(ph.dur)}
               </p>
             </div>
@@ -284,7 +288,7 @@ function PhaseTimeline({ profile }: { profile: Record<string, unknown> }) {
           <div key={ev.label} className="bg-stone-50 dark:bg-stone-800 rounded-xl p-3 text-center">
             <p className={`text-base font-bold ${ev.color}`}>{Math.round(ev.temp)}°C</p>
             <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">{ev.label}</p>
-            <p className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5 font-mono">{fmtTime(ev.time)}</p>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-mono">{fmtTime(ev.time)}</p>
           </div>
         ))}
       </div>
@@ -316,9 +320,9 @@ export default function RoastDetailPage() {
 
   if (loadError) return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 max-w-2xl mx-auto px-4 py-6">
-      <button onClick={() => nav("/")} className={backCls}>← Mis tuestes</button>
+      <button onClick={() => nav("/")} className={backCls}><ArrowLeft className="w-4 h-4" /> Mis tuestes</button>
       <div className="text-center py-16">
-        <p className="text-5xl mb-3">☕</p>
+        <AlertCircle className="w-12 h-12 mx-auto mb-3 text-stone-400 dark:text-stone-600" />
         <p className="text-stone-500 dark:text-stone-400">No se pudo cargar este tueste.</p>
       </div>
     </div>
@@ -326,7 +330,7 @@ export default function RoastDetailPage() {
 
   if (!roast) return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 max-w-2xl mx-auto px-4 py-6">
-      <div className="animate-pulse space-y-4">
+      <div className="animate-pulse motion-reduce:animate-none space-y-4">
         <div className="h-4 bg-stone-200 dark:bg-stone-700 rounded w-1/4" />
         <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6 h-40" />
         <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-6 h-64" />
@@ -341,6 +345,8 @@ export default function RoastDetailPage() {
     navigator.clipboard.writeText(publicUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      toast.error("No se pudo copiar el link.");
     });
   };
 
@@ -358,7 +364,7 @@ export default function RoastDetailPage() {
       )}
 
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <button onClick={() => nav("/")} className={backCls}>← Mis tuestes</button>
+        <button onClick={() => nav("/")} className={backCls}><ArrowLeft className="w-4 h-4" /> Mis tuestes</button>
 
         <div className="space-y-4">
           {/* ── Main card ── */}
@@ -367,7 +373,7 @@ export default function RoastDetailPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 mb-1">
                   <span className={`w-3 h-3 rounded-full shrink-0 ${levelDot[roast.roast_level] ?? "bg-stone-400"}`} />
-                  <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 leading-tight">{roast.bean_origin}</h2>
+                  <h1 className="text-xl font-bold text-stone-900 dark:text-stone-100 leading-tight">{roast.bean_origin}</h1>
                 </div>
                 {roast.farm && <p className="text-sm text-stone-500 dark:text-stone-400 ml-5">Finca {roast.farm}</p>}
                 {roast.variety && <p className="text-xs text-stone-400 dark:text-stone-500 ml-5">{roast.variety}{roast.process ? ` · ${roast.process}` : ""}</p>}
@@ -426,14 +432,14 @@ export default function RoastDetailPage() {
               {/* Header */}
               <div className="px-5 pt-5 pb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Curva de tueste</h3>
-                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+                  <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">Curva de tueste</h2>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                     Importado desde Artisan
                     {roast.roast_time_minutes != null && ` · ${roast.roast_time_minutes.toFixed(1)} min`}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-3 py-1.5">
-                  <span className="text-amber-600 dark:text-amber-400 text-sm">🌡</span>
+                  <Thermometer className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
                     {String(profile.mode ?? "").toUpperCase() === "F" ? "°F → °C" : "°C"}
                   </span>
@@ -455,7 +461,7 @@ export default function RoastDetailPage() {
           {/* ── Artisan stats (no curve) ── */}
           {profile && !hasCurve && (
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5">
-              <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-3">Datos de Artisan</h3>
+              <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-3">Datos de Artisan</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {roast.charge_temp != null && <Stat label="Temp. carga" value={`${roast.charge_temp} °C`} />}
                 {roast.drop_temp != null && <Stat label="Temp. descarga" value={`${roast.drop_temp} °C`} />}
@@ -472,10 +478,10 @@ export default function RoastDetailPage() {
 
           {/* ── QR label ── */}
           <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5">
-            <h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-4">Etiqueta QR</h3>
+            <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-4">Etiqueta QR</h2>
             <div className="flex gap-4 items-center">
               <div className="bg-white rounded-xl p-2 border border-stone-200 dark:border-stone-700 shrink-0">
-                <img src={qrUrl} alt="QR" className="w-20 h-20" />
+                <img src={qrUrl} alt="Código QR con el enlace público de este tueste" className="w-20 h-20" />
               </div>
               <div className="flex-1 space-y-2">
                 <a

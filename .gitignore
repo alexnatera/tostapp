@@ -22,3 +22,4 @@ postgres_data/
 .idea/
 *.swp
 .gstack/
+*.tsbuildinfo

@@ -4,6 +4,9 @@ import { api, type AdminUser } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { confirmDestructive } from "../lib/confirm";
+import { toast } from "../lib/toast";
+import Field from "../components/ui/Field";
 
 interface Stats {
   total_users: number;
@@ -36,13 +39,18 @@ export default function AdminPage() {
   }, []);
 
   const handleImpersonate = async (user: AdminUser) => {
+    const ok = await confirmDestructive(
+      `¿Ver la cuenta de ${user.roastery_name} como este usuario?`,
+      "Impersonar cuenta"
+    );
+    if (!ok) return;
     setImpersonating(user.id);
     try {
       const res = await api.admin.impersonate(user.id);
       startImpersonation(res.access_token, user.roastery_name);
       nav("/");
     } catch (e) {
-      alert((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setImpersonating(null);
     }
@@ -50,13 +58,17 @@ export default function AdminPage() {
 
   const handleToggle = async (user: AdminUser) => {
     const action = user.is_active ? "suspender" : "activar";
-    if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} la cuenta de ${user.roastery_name}?`)) return;
+    const ok = await confirmDestructive(
+      `¿${action.charAt(0).toUpperCase() + action.slice(1)} la cuenta de ${user.roastery_name}?`,
+      action.charAt(0).toUpperCase() + action.slice(1)
+    );
+    if (!ok) return;
     setToggling(user.id);
     try {
       const updated = await api.admin.toggle(user.id);
       setUsers((prev) => prev.map((u) => u.id === updated.id ? updated : u));
     } catch (e) {
-      alert((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setToggling(null);
     }
@@ -68,10 +80,17 @@ export default function AdminPage() {
       const updated = await api.admin.setPlan(user.id, newPlan);
       setUsers((prev) => prev.map((u) => u.id === updated.id ? updated : u));
     } catch (e) {
-      alert((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setSettingPlan(null);
     }
+  };
+
+  const handleLogout = async () => {
+    const ok = await confirmDestructive("¿Cerrar sesión?", "Salir");
+    if (!ok) return;
+    logout();
+    nav("/login");
   };
 
   return (
@@ -85,13 +104,13 @@ export default function AdminPage() {
           <div className="flex gap-3">
             <button
               onClick={() => nav("/")}
-              className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+              className="text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors py-2"
             >
               ← Mi dashboard
             </button>
             <button
-              onClick={() => { logout(); nav("/login"); }}
-              className="text-sm text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+              onClick={handleLogout}
+              className="text-sm text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors py-2"
             >
               Salir
             </button>
@@ -117,7 +136,7 @@ export default function AdminPage() {
           <h2 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Cuentas registradas
           </h2>
-          <span className="text-xs text-stone-400 dark:text-stone-500">{users.length}</span>
+          <span className="text-xs text-stone-500">{users.length}</span>
         </div>
 
         <div className="space-y-2">
@@ -154,7 +173,7 @@ export default function AdminPage() {
                     )}
                   </div>
                   <p className="text-xs text-stone-500 dark:text-stone-400 truncate">{u.email}</p>
-                  <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+                  <p className="text-xs text-stone-500 mt-0.5">
                     {u.roast_count} tueste{u.roast_count !== 1 ? "s" : ""} · desde{" "}
                     {format(new Date(u.created_at), "d MMM yyyy", { locale: es })}
                     {u.last_active_at && (
@@ -168,14 +187,14 @@ export default function AdminPage() {
                     <button
                       onClick={() => handleImpersonate(u)}
                       disabled={impersonating === u.id || !u.is_active}
-                      className="text-xs bg-amber-800 dark:bg-amber-600 text-white px-3 py-1.5 rounded-xl hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors disabled:opacity-40 font-medium"
+                      className="text-xs bg-amber-800 dark:bg-amber-600 text-white px-4 py-2.5 min-h-11 rounded-xl hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors disabled:opacity-40 font-medium"
                     >
                       {impersonating === u.id ? "..." : "Ver como"}
                     </button>
                     <button
                       onClick={() => handleToggle(u)}
                       disabled={toggling === u.id}
-                      className={`text-xs px-3 py-1.5 rounded-xl font-medium transition-colors disabled:opacity-40 ${
+                      className={`text-xs px-4 py-2.5 min-h-11 rounded-xl font-medium transition-colors disabled:opacity-40 ${
                         u.is_active
                           ? "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60"
                           : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-950/60"
@@ -189,22 +208,25 @@ export default function AdminPage() {
 
               {!u.is_admin && (
                 <div className="mt-3 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-3">
-                  <span className="text-xs text-stone-400 dark:text-stone-500">Plan:</span>
-                  <select
-                    value={u.plan_tier}
-                    disabled={settingPlan === u.id}
-                    onChange={(e) => handlePlanChange(u, e.target.value)}
-                    className="text-xs bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-stone-700 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
-                  >
-                    <option value="beta">Beta</option>
-                    <option value="pro">Pro</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
+                  <div className="flex-1 max-w-[10rem]">
+                    <Field label="Plan">
+                      <select
+                        value={u.plan_tier}
+                        disabled={settingPlan === u.id}
+                        onChange={(e) => handlePlanChange(u, e.target.value)}
+                        className="w-full text-sm bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-2.5 min-h-11 text-stone-700 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
+                      >
+                        <option value="beta">Beta</option>
+                        <option value="pro">Pro</option>
+                        <option value="enterprise">Enterprise</option>
+                      </select>
+                    </Field>
+                  </div>
                   {settingPlan === u.id && (
-                    <span className="text-xs text-stone-400 dark:text-stone-500">Guardando...</span>
+                    <span className="text-xs text-stone-500">Guardando...</span>
                   )}
                   {u.subscription_expires_at && (
-                    <span className="text-xs text-stone-400 dark:text-stone-500">
+                    <span className="text-xs text-stone-500">
                       vence {format(new Date(u.subscription_expires_at), "d MMM yyyy", { locale: es })}
                     </span>
                   )}

@@ -25,7 +25,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
         {value}
       </p>
       {sub && (
-        <p className={`num text-xs mt-0.5 ${accent ? "text-amber-200/80" : "text-stone-400 dark:text-stone-500"}`}>
+        <p className={`num text-xs mt-0.5 ${accent ? "text-amber-200/80" : "text-stone-500 dark:text-stone-400"}`}>
           {sub}
         </p>
       )}
@@ -52,7 +52,7 @@ function WeekBar({ week, maxRevenue }: { week: WeekSummary; maxRevenue: number }
           title={`Ventas: $${week.revenue.toFixed(0)}`}
         />
       </div>
-      <p className="text-xs text-stone-400 dark:text-stone-500 whitespace-nowrap truncate w-full text-center">{label}</p>
+      <p className="text-xs text-stone-500 dark:text-stone-400 whitespace-nowrap truncate w-full text-center">{label}</p>
     </div>
   );
 }

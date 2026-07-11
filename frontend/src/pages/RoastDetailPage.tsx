@@ -376,7 +376,7 @@ export default function RoastDetailPage() {
                   <h1 className="text-xl font-bold text-stone-900 dark:text-stone-100 leading-tight">{roast.bean_origin}</h1>
                 </div>
                 {roast.farm && <p className="text-sm text-stone-500 dark:text-stone-400 ml-5">Finca {roast.farm}</p>}
-                {roast.variety && <p className="text-xs text-stone-400 dark:text-stone-500 ml-5">{roast.variety}{roast.process ? ` · ${roast.process}` : ""}</p>}
+                {roast.variety && <p className="text-xs text-stone-500 dark:text-stone-400 ml-5">{roast.variety}{roast.process ? ` · ${roast.process}` : ""}</p>}
               </div>
               <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 shrink-0">
                 {levelLabel[roast.roast_level] ?? roast.roast_level}

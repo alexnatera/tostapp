@@ -103,7 +103,7 @@ export default function Combobox<T>({
               type="button"
               aria-label="Quitar selección"
               onClick={(e) => { e.stopPropagation(); onSelect(null); setQuery(""); }}
-              className="min-w-6 min-h-6 flex items-center justify-center text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded"
+              className="min-w-6 min-h-6 flex items-center justify-center text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded"
             >
               <X className="w-3.5 h-3.5" />
             </button>

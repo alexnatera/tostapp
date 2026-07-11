@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type Customer, type DocumentCreate, type Product } from "../lib/api";
+import Combobox from "../components/ui/Combobox";
+import Modal from "../components/ui/Modal";
+import Field from "../components/ui/Field";
+import IconButton from "../components/ui/IconButton";
+import { ClipboardList, Receipt, FileText, AlertTriangle, X, ArrowLeft } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,9 +22,9 @@ interface DocItem {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DOC_TYPES = [
-  { id: "presupuesto", label: "Presupuesto", icon: "📋" },
-  { id: "boleta", label: "Boleta", icon: "🧾" },
-  { id: "factura", label: "Factura", icon: "📄" },
+  { id: "presupuesto", label: "Presupuesto", icon: ClipboardList },
+  { id: "boleta", label: "Boleta", icon: Receipt },
+  { id: "factura", label: "Factura", icon: FileText },
 ];
 const CURRENCIES = ["CLP", "USD", "EUR", "ARS", "MXN", "COP", "PEN"];
 const STATUS_OPTIONS = [
@@ -31,7 +36,7 @@ const STATUS_OPTIONS = [
 const UNITS = ["unidad", "kg", "g", "lb", "bolsa", "caja", "paquete", "servicio"];
 
 const inputCls =
-  "w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500 focus:border-transparent transition-all";
+  "w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5 text-base text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500 focus:border-transparent transition-all";
 
 // ── Helper ─────────────────────────────────────────────────────────────────
 
@@ -41,116 +46,6 @@ function calcTotals(items: DocItem[], taxRate: number) {
   const subtotal = items.reduce((s, i) => s + i.total, 0);
   const taxAmount = subtotal * (taxRate / 100);
   return { subtotal, taxAmount, total: subtotal + taxAmount };
-}
-
-// ── Combobox ─────────────────────────────────────────────────────────────────
-
-function Combobox<T>({
-  items,
-  value,
-  onSelect,
-  onCreateNew,
-  getLabel,
-  getSubLabel,
-  placeholder,
-  createLabel,
-}: {
-  items: T[];
-  value: T | null;
-  onSelect: (item: T) => void;
-  onCreateNew: () => void;
-  getLabel: (item: T) => string;
-  getSubLabel?: (item: T) => string;
-  placeholder: string;
-  createLabel: string;
-}) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function close(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  const filtered = items.filter((i) =>
-    getLabel(i).toLowerCase().includes(query.toLowerCase())
-  );
-
-  return (
-    <div ref={ref} className="relative">
-      <div
-        className="flex items-center gap-2 w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5 cursor-pointer"
-        onClick={() => setOpen(true)}
-      >
-        {value && !open ? (
-          <>
-            <span className="text-sm text-stone-900 dark:text-stone-100 flex-1 truncate">{getLabel(value)}</span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onSelect(null as unknown as T); setQuery(""); }}
-              className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-xs"
-            >
-              ×
-            </button>
-          </>
-        ) : (
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-            onFocus={() => setOpen(true)}
-            placeholder={placeholder}
-            className="flex-1 bg-transparent text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none"
-          />
-        )}
-      </div>
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto">
-          {filtered.length === 0 && (
-            <p className="px-4 py-3 text-xs text-stone-400 dark:text-stone-500">Sin resultados</p>
-          )}
-          {filtered.map((item, i) => (
-            <button
-              key={i}
-              type="button"
-              onMouseDown={() => { onSelect(item); setQuery(""); setOpen(false); }}
-              className="w-full text-left px-4 py-2.5 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
-            >
-              <p className="text-sm font-medium text-stone-900 dark:text-stone-100">{getLabel(item)}</p>
-              {getSubLabel && <p className="text-xs text-stone-400 dark:text-stone-500">{getSubLabel(item)}</p>}
-            </button>
-          ))}
-          <button
-            type="button"
-            onMouseDown={() => { setOpen(false); onCreateNew(); }}
-            className="w-full text-left px-4 py-2.5 border-t border-stone-100 dark:border-stone-800 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-          >
-            + {createLabel}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Mini modal ────────────────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 w-full max-w-sm shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 dark:border-stone-800">
-          <h3 className="font-semibold text-stone-900 dark:text-stone-100 text-sm">{title}</h3>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-lg leading-none">×</button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
 }
 
 // ── New Client Modal ──────────────────────────────────────────────────────────
@@ -175,18 +70,15 @@ function NewClientModal({ onSave, onClose }: { onSave: (c: Customer) => void; on
   return (
     <Modal title="Nuevo cliente" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Nombre *</label>
+        <Field label="Nombre" required>
           <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Café Amanecer" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Email</label>
+        </Field>
+        <Field label="Email">
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="cliente@empresa.com" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Teléfono</label>
+        </Field>
+        <Field label="Teléfono">
           <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} placeholder="+56 9 1234 5678" />
-        </div>
+        </Field>
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="flex-1 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 rounded-xl py-2.5 text-sm font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
             Cancelar
@@ -230,31 +122,26 @@ function NewProductModal({ onSave, onClose }: { onSave: (p: Product) => void; on
   return (
     <Modal title="Nuevo producto" onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Nombre *</label>
+        <Field label="Nombre" required>
           <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Café Ethiopia 250g" />
-        </div>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Precio unit.</label>
+          <Field label="Precio unit.">
             <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className={inputCls} placeholder="0" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Stock actual</label>
+          </Field>
+          <Field label="Stock actual">
             <input type="number" min="0" step="0.001" value={stock} onChange={(e) => setStock(e.target.value)} className={inputCls} placeholder="0" />
-          </div>
+          </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Unidad</label>
+          <Field label="Unidad">
             <select value={unit} onChange={(e) => setUnit(e.target.value)} className={inputCls}>
               {UNITS.map((u) => <option key={u}>{u}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">SKU</label>
+          </Field>
+          <Field label="SKU">
             <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className={inputCls} placeholder="ETH-250" />
-          </div>
+          </Field>
         </div>
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="flex-1 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 rounded-xl py-2.5 text-sm font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors">
@@ -306,6 +193,7 @@ export default function DocumentFormPage() {
   const [loadingNumber, setLoadingNumber] = useState(false);
   const [showNewClient, setShowNewClient] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState<number | null>(null); // item index
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   // Load catalog
   useEffect(() => {
@@ -459,6 +347,9 @@ export default function DocumentFormPage() {
       nav(`/documents/${doc.id}`);
     } catch (err) {
       setError((err as Error).message);
+      requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
     } finally {
       setSaving(false);
     }
@@ -487,9 +378,9 @@ export default function DocumentFormPage() {
         <div className="max-w-2xl mx-auto px-4 py-6 pb-24 lg:pb-8 lg:py-8">
           <button
             onClick={() => nav(-1)}
-            className="text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm mb-5 flex items-center gap-1 transition-colors"
+            className="text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm mb-5 flex items-center gap-1 py-2 transition-colors"
           >
-            ← Volver
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Volver
           </button>
 
           <header className="mb-6">
@@ -501,7 +392,7 @@ export default function DocumentFormPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Type + meta */}
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-4">
-              <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Tipo</p>
+              <h2 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Tipo</h2>
               <div className="grid grid-cols-3 gap-2">
                 {DOC_TYPES.map((t) => (
                   <button
@@ -514,14 +405,13 @@ export default function DocumentFormPage() {
                         : "border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600"
                     }`}
                   >
-                    <span className="text-xl">{t.icon}</span>
+                    <t.icon className="w-5 h-5" aria-hidden="true" />
                     {t.label}
                   </button>
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1.5">Número</label>
+                <Field label="Número">
                   <input
                     type="text"
                     value={loadingNumber ? "..." : docNumber}
@@ -529,35 +419,31 @@ export default function DocumentFormPage() {
                     className={inputCls}
                     required
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1.5">Estado</label>
+                </Field>
+                <Field label="Estado">
                   <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputCls}>
                     {STATUS_OPTIONS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                   </select>
-                </div>
+                </Field>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1.5">Moneda</label>
+                <Field label="Moneda">
                   <select value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputCls}>
                     {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1.5">Emisión</label>
+                </Field>
+                <Field label="Emisión">
                   <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1.5">Vence</label>
+                </Field>
+                <Field label="Vence">
                   <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
-                </div>
+                </Field>
               </div>
             </div>
 
             {/* Client */}
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-3">
-              <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Cliente</p>
+              <h2 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Cliente</h2>
               <Combobox
                 items={customers}
                 value={selectedClient}
@@ -571,27 +457,27 @@ export default function DocumentFormPage() {
               {/* Editable client fields */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Nombre / Empresa</label>
-                  <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className={inputCls} placeholder="Nombre del cliente" />
+                  <Field label="Nombre / Empresa">
+                    <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} className={inputCls} placeholder="Nombre del cliente" />
+                  </Field>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Email</label>
+                <Field label="Email">
                   <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className={inputCls} placeholder="cliente@empresa.com" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">RUT / ID fiscal</label>
+                </Field>
+                <Field label="RUT / ID fiscal">
                   <input type="text" value={clientTaxId} onChange={(e) => setClientTaxId(e.target.value)} className={inputCls} placeholder="76.123.456-7" />
-                </div>
+                </Field>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">Dirección</label>
-                  <input type="text" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className={inputCls} placeholder="Av. Principal 123, Santiago" />
+                  <Field label="Dirección">
+                    <input type="text" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} className={inputCls} placeholder="Av. Principal 123, Santiago" />
+                  </Field>
                 </div>
               </div>
             </div>
 
             {/* Line items */}
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5">
-              <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-4">Productos / Servicios</p>
+              <h2 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-4">Productos / Servicios</h2>
 
               <div className="space-y-4">
                 {items.map((item, i) => {
@@ -615,13 +501,14 @@ export default function DocumentFormPage() {
                           />
                         </div>
                         {items.length > 1 && (
-                          <button
-                            type="button"
+                          <IconButton
+                            aria-label="Eliminar ítem"
+                            variant="danger"
                             onClick={() => removeItem(i)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg text-stone-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+                            className="shrink-0"
                           >
-                            ×
-                          </button>
+                            <X className="w-4 h-4" />
+                          </IconButton>
                         )}
                       </div>
 
@@ -637,9 +524,8 @@ export default function DocumentFormPage() {
                       )}
 
                       {/* Qty + price + total */}
-                      <div className="grid grid-cols-[80px_1fr_90px_1fr] gap-2 items-end">
-                        <div>
-                          <label className="block text-xs text-stone-400 dark:text-stone-500 mb-1">Cantidad</label>
+                      <div className="grid grid-cols-[minmax(64px,20%)_1fr_minmax(72px,22%)_1fr] gap-2 items-end">
+                        <Field label="Cantidad">
                           <input
                             type="number"
                             min="0"
@@ -648,17 +534,17 @@ export default function DocumentFormPage() {
                             onChange={(e) => updateItemQty(i, Number(e.target.value))}
                             className={`${inputCls} text-center px-2 ${overStock ? "border-amber-400 dark:border-amber-500 focus:ring-amber-400" : ""}`}
                           />
-                        </div>
+                        </Field>
                         <div>
                           {item.stock_available !== undefined && (
-                            <div className={`text-xs mb-1 ${overStock ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-stone-400 dark:text-stone-500"}`}>
-                              {overStock ? `⚠ Stock mínimo: ${item.stock_available} ${item.unit ?? ""}` : `Stock: ${item.stock_available} ${item.unit ?? ""}`}
+                            <div className={`text-xs mb-1 flex items-center gap-1 ${overStock ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-stone-500 dark:text-stone-400"}`}>
+                              {overStock && <AlertTriangle className="w-3 h-3 shrink-0" aria-hidden="true" />}
+                              {overStock ? `Stock mínimo: ${item.stock_available} ${item.unit ?? ""}` : `Stock: ${item.stock_available} ${item.unit ?? ""}`}
                             </div>
                           )}
                           {!item.stock_available && <div className="mb-1 h-4" />}
                         </div>
-                        <div>
-                          <label className="block text-xs text-stone-400 dark:text-stone-500 mb-1">P. Unit.</label>
+                        <Field label="P. Unit.">
                           <input
                             type="number"
                             min="0"
@@ -667,16 +553,17 @@ export default function DocumentFormPage() {
                             onChange={(e) => updateItemPrice(i, Number(e.target.value))}
                             className={`${inputCls} text-right px-2`}
                           />
-                        </div>
+                        </Field>
                         <div className="text-right">
-                          <label className="block text-xs text-stone-400 dark:text-stone-500 mb-1">Total</label>
-                          <p className="py-2.5 text-sm font-semibold text-stone-800 dark:text-stone-200">{fmt(item.total)}</p>
+                          <span className="block text-xs text-stone-500 dark:text-stone-400 mb-1">Total</span>
+                          <p className="num py-2.5 text-sm font-semibold text-stone-800 dark:text-stone-200">{fmt(item.total)}</p>
                         </div>
                       </div>
 
                       {overStock && (
-                        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 rounded-lg px-3 py-1.5">
-                          ⚠ La cantidad supera el stock disponible ({item.stock_available} {item.unit ?? "unidades"}). Puedes continuar, pero revisa tu inventario.
+                        <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          La cantidad supera el stock disponible ({item.stock_available} {item.unit ?? "unidades"}). Puedes continuar, pero revisa tu inventario.
                         </p>
                       )}
                     </div>
@@ -696,7 +583,7 @@ export default function DocumentFormPage() {
               <div className="mt-5 pt-4 border-t border-stone-100 dark:border-stone-800 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-stone-500 dark:text-stone-400">Subtotal</span>
-                  <span className="text-sm font-medium text-stone-800 dark:text-stone-200">{fmt(subtotal)}</span>
+                  <span className="num text-sm font-medium text-stone-800 dark:text-stone-200">{fmt(subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
@@ -706,26 +593,28 @@ export default function DocumentFormPage() {
                         type="number" min="0" max="100" step="0.5"
                         value={taxRate}
                         onChange={(e) => setTaxRate(Number(e.target.value))}
-                        className="w-16 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500"
+                        aria-label="Porcentaje de impuesto"
+                        className="w-16 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-2 py-1 text-base text-center focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500"
                       />
-                      <span className="text-sm text-stone-400">%</span>
+                      <span className="text-sm text-stone-500 dark:text-stone-400">%</span>
                     </div>
                   </div>
-                  <span className="text-sm font-medium text-stone-800 dark:text-stone-200">{fmt(taxAmount)}</span>
+                  <span className="num text-sm font-medium text-stone-800 dark:text-stone-200">{fmt(taxAmount)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-stone-200 dark:border-stone-700">
                   <span className="font-bold text-stone-900 dark:text-stone-100">Total</span>
-                  <span className="font-bold text-lg text-stone-900 dark:text-stone-100">{fmt(total)}</span>
+                  <span className="num font-bold text-lg text-stone-900 dark:text-stone-100">{fmt(total)}</span>
                 </div>
               </div>
             </div>
 
             {/* Notes */}
             <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5">
-              <label className="block text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
+              <h2 id="notes-heading" className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
                 Notas / Condiciones de pago
-              </label>
+              </h2>
               <textarea
+                aria-labelledby="notes-heading"
                 rows={3}
                 placeholder="Ej: Transferencia a Banco Estado Cta. 123456. Validez: 15 días."
                 value={notes}
@@ -735,7 +624,10 @@ export default function DocumentFormPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-xl">
+              <p
+                ref={errorRef}
+                className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 rounded-xl"
+              >
                 {error}
               </p>
             )}

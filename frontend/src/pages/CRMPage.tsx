@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, type Customer, type CustomerCreate, type Supplier, type SupplierCreate } from "../lib/api";
 import AppLayout from "../components/AppLayout";
+import IconButton from "../components/ui/IconButton";
+import Field from "../components/ui/Field";
+import { toast } from "../lib/toast";
+import { confirmDestructive } from "../lib/confirm";
+import { X, Trash2, Mail, Phone, MessageCircle, Globe, Camera, MapPin, Users, Store, User } from "lucide-react";
 
 type CRMTab = "clientes" | "proveedores";
 
@@ -34,22 +39,13 @@ export default function CRMPage() {
 // ── shared helpers ─────────────────────────────────────────────────────────────
 
 const inp =
-  "w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2.5 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500 focus:border-transparent transition-all";
+  "w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-3 py-2.5 text-base text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500 focus:border-transparent transition-all";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function ContactLink({ href, icon, label }: { href: string; icon: string; label: string }) {
+function ContactLink({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer"
       className="inline-flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400 hover:text-amber-700 dark:hover:text-amber-400 transition-colors">
-      <span>{icon}</span>
+      {icon}
       <span className="truncate max-w-[120px]">{label}</span>
     </a>
   );
@@ -84,7 +80,6 @@ function ClientesTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerForm>(emptyCustomer());
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -92,12 +87,11 @@ function ClientesTab() {
   }
   useEffect(() => { load(); }, []);
 
-  function openNew() { setEditingId(null); setForm(emptyCustomer()); setShowNew(true); setError(null); }
+  function openNew() { setEditingId(null); setForm(emptyCustomer()); setShowNew(true); }
 
   function openEdit(c: Customer) {
     setShowNew(false);
     setEditingId(c.id);
-    setError(null);
     setForm({
       name: c.name, email: c.email ?? "", phone: c.phone ?? "",
       whatsapp: c.whatsapp ?? "", instagram: c.instagram ?? "",
@@ -109,13 +103,13 @@ function ClientesTab() {
     });
   }
 
-  function cancelEdit() { setEditingId(null); setShowNew(false); setError(null); }
+  function cancelEdit() { setEditingId(null); setShowNew(false); }
 
   function set(k: keyof CustomerForm, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true); setError(null);
+    setSaving(true);
     const payload = Object.fromEntries(
       Object.entries(form).map(([k, v]) => [k, v === "" ? null : v])
     ) as CustomerCreate;
@@ -133,21 +127,22 @@ function ClientesTab() {
         setShowNew(false);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al guardar");
+      toast.error(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este cliente?")) return;
+    const ok = await confirmDestructive("Esta acción no se puede deshacer.", "¿Eliminar este cliente?");
+    if (!ok) return;
     try {
       await api.customers.delete(id);
       setCustomers((prev) => prev.filter((c) => c.id !== id));
       setTotal((t) => t - 1);
       if (editingId === id) setEditingId(null);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Error al eliminar");
+      toast.error(e instanceof Error ? e.message : "Error al eliminar");
     }
   }
 
@@ -165,12 +160,12 @@ function ClientesTab() {
         <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
           {editingId ? "Editar cliente" : "Nuevo cliente"}
         </h2>
-        <button type="button" onClick={cancelEdit} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-lg leading-none">×</button>
+        <IconButton aria-label="Cerrar" onClick={cancelEdit}>
+          <X className="w-4 h-4" />
+        </IconButton>
       </div>
 
-      {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl">{error}</p>}
-
-      <Field label="Nombre *">
+      <Field label="Nombre" required>
         <input required value={form.name} onChange={(e) => set("name", e.target.value)} className={inp} placeholder="Cafetería El Origen" />
       </Field>
 
@@ -193,19 +188,19 @@ function ClientesTab() {
 
       {/* Contact */}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="📧 Email">
+        <Field label="Email">
           <input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} className={inp} placeholder="hola@cafe.cl" />
         </Field>
-        <Field label="📞 Teléfono">
+        <Field label="Teléfono">
           <input value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} className={inp} placeholder="+56 9 1234 5678" />
         </Field>
-        <Field label="💬 WhatsApp">
+        <Field label="WhatsApp">
           <input value={form.whatsapp ?? ""} onChange={(e) => set("whatsapp", e.target.value)} className={inp} placeholder="+56912345678" />
         </Field>
-        <Field label="🌐 Sitio web">
+        <Field label="Sitio web">
           <input value={form.website ?? ""} onChange={(e) => set("website", e.target.value)} className={inp} placeholder="www.cafe.cl" />
         </Field>
-        <Field label="📸 Instagram">
+        <Field label="Instagram">
           <input value={form.instagram ?? ""} onChange={(e) => set("instagram", e.target.value)} className={inp} placeholder="@cafeteria" />
         </Field>
         <Field label="Facebook">
@@ -264,7 +259,7 @@ function ClientesTab() {
 
       {loading ? <Skeleton /> : filtered.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-3">👥</div>
+          <Users className="w-12 h-12 mx-auto mb-3 text-stone-300 dark:text-stone-700" aria-hidden="true" />
           <p className="text-stone-500 dark:text-stone-400 text-sm font-medium">
             {search ? "Sin resultados" : "Sin clientes registrados"}
           </p>
@@ -292,60 +287,64 @@ function ClientesTab() {
                         {c.type}
                       </span>
                       {c.tax_id && (
-                        <span className="text-xs text-stone-400 dark:text-stone-500 font-mono">{c.tax_id}</span>
+                        <span className="text-xs text-stone-500 dark:text-stone-400 font-mono">{c.tax_id}</span>
                       )}
                     </div>
                     {(c.city || c.address) && (
-                      <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                        📍 {[c.city, c.address].filter(Boolean).join(", ")}
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        {[c.city, c.address].filter(Boolean).join(", ")}
                       </p>
                     )}
 
                     {/* Contact links */}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
-                      {c.email && <ContactLink href={`mailto:${c.email}`} icon="📧" label={c.email} />}
-                      {c.phone && <ContactLink href={`tel:${c.phone}`} icon="📞" label={c.phone} />}
+                      {c.email && <ContactLink href={`mailto:${c.email}`} icon={<Mail className="w-3.5 h-3.5" aria-hidden="true" />} label={c.email} />}
+                      {c.phone && <ContactLink href={`tel:${c.phone}`} icon={<Phone className="w-3.5 h-3.5" aria-hidden="true" />} label={c.phone} />}
                       {c.whatsapp && (
                         <ContactLink
                           href={`https://wa.me/${c.whatsapp.replace(/[^0-9]/g, "")}`}
-                          icon="💬" label={c.whatsapp}
+                          icon={<MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />} label={c.whatsapp}
                         />
                       )}
                       {c.instagram && (
                         <ContactLink
                           href={c.instagram.startsWith("http") ? c.instagram : `https://instagram.com/${c.instagram.replace("@", "")}`}
-                          icon="📸" label={c.instagram}
+                          icon={<Camera className="w-3.5 h-3.5" aria-hidden="true" />} label={c.instagram}
                         />
                       )}
                       {c.facebook && (
                         <ContactLink
                           href={c.facebook.startsWith("http") ? c.facebook : `https://facebook.com/${c.facebook}`}
-                          icon="👤" label={c.facebook}
+                          icon={<User className="w-3.5 h-3.5" aria-hidden="true" />} label={c.facebook}
                         />
                       )}
                       {c.website && (
                         <ContactLink
                           href={c.website.startsWith("http") ? c.website : `https://${c.website}`}
-                          icon="🌐" label={c.website}
+                          icon={<Globe className="w-3.5 h-3.5" aria-hidden="true" />} label={c.website}
                         />
                       )}
                     </div>
 
                     {c.notes && (
-                      <p className="text-xs text-stone-400 dark:text-stone-500 mt-1.5 italic">{c.notes}</p>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 italic">{c.notes}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="flex gap-2 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
                   <button onClick={() => openEdit(c)}
-                    className="flex-1 text-center text-xs font-medium text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg py-1.5 transition-colors">
+                    className="flex-1 text-center text-xs font-medium text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg py-3 min-h-11 transition-colors">
                     Editar
                   </button>
-                  <button onClick={() => handleDelete(c.id)}
-                    className="px-4 text-xs font-medium text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 rounded-lg py-1.5 transition-colors">
-                    Eliminar
-                  </button>
+                  <IconButton
+                    aria-label="Eliminar cliente"
+                    variant="danger"
+                    onClick={() => handleDelete(c.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </IconButton>
                 </div>
               </div>
             );
@@ -376,7 +375,6 @@ function ProveedoresTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<SupplierForm>(emptySupplier());
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -384,12 +382,11 @@ function ProveedoresTab() {
   }
   useEffect(() => { load(); }, []);
 
-  function openNew() { setEditingId(null); setForm(emptySupplier()); setShowNew(true); setError(null); }
+  function openNew() { setEditingId(null); setForm(emptySupplier()); setShowNew(true); }
 
   function openEdit(s: Supplier) {
     setShowNew(false);
     setEditingId(s.id);
-    setError(null);
     setForm({
       name: s.name, email: s.email ?? "", phone: s.phone ?? "",
       whatsapp: s.whatsapp ?? "", website: s.website ?? "",
@@ -398,12 +395,12 @@ function ProveedoresTab() {
     });
   }
 
-  function cancelEdit() { setEditingId(null); setShowNew(false); setError(null); }
+  function cancelEdit() { setEditingId(null); setShowNew(false); }
   function set(k: keyof SupplierForm, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true); setError(null);
+    setSaving(true);
     const payload = Object.fromEntries(
       Object.entries(form).map(([k, v]) => [k, v === "" ? null : v])
     ) as SupplierCreate;
@@ -420,21 +417,22 @@ function ProveedoresTab() {
         setShowNew(false);
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al guardar");
+      toast.error(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este proveedor?")) return;
+    const ok = await confirmDestructive("Esta acción no se puede deshacer.", "¿Eliminar este proveedor?");
+    if (!ok) return;
     try {
       await api.suppliers.delete(id);
       setSuppliers((prev) => prev.filter((s) => s.id !== id));
       setTotal((t) => t - 1);
       if (editingId === id) setEditingId(null);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Error al eliminar");
+      toast.error(e instanceof Error ? e.message : "Error al eliminar");
     }
   }
 
@@ -444,33 +442,33 @@ function ProveedoresTab() {
         <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
           {editingId ? "Editar proveedor" : "Nuevo proveedor"}
         </h2>
-        <button type="button" onClick={cancelEdit} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-lg leading-none">×</button>
+        <IconButton aria-label="Cerrar" onClick={cancelEdit}>
+          <X className="w-4 h-4" />
+        </IconButton>
       </div>
-
-      {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-xl">{error}</p>}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <Field label="Nombre *">
+          <Field label="Nombre" required>
             <input required value={form.name} onChange={(e) => set("name", e.target.value)} className={inp} placeholder="Importadora de Café" />
           </Field>
         </div>
         <Field label="Persona de contacto">
           <input value={form.contact_person} onChange={(e) => set("contact_person", e.target.value)} className={inp} placeholder="Juan Pérez" />
         </Field>
-        <Field label="📧 Email">
+        <Field label="Email">
           <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className={inp} placeholder="ventas@cafe.com" />
         </Field>
-        <Field label="📞 Teléfono">
+        <Field label="Teléfono">
           <input value={form.phone} onChange={(e) => set("phone", e.target.value)} className={inp} placeholder="+56 9 1234 5678" />
         </Field>
-        <Field label="💬 WhatsApp">
+        <Field label="WhatsApp">
           <input value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} className={inp} placeholder="+56912345678" />
         </Field>
         <Field label="Ciudad">
           <input value={form.city} onChange={(e) => set("city", e.target.value)} className={inp} placeholder="Santiago" />
         </Field>
-        <Field label="🌐 Sitio web">
+        <Field label="Sitio web">
           <input value={form.website} onChange={(e) => set("website", e.target.value)} className={inp} placeholder="www.proveedor.cl" />
         </Field>
         <div className="col-span-2">
@@ -512,7 +510,7 @@ function ProveedoresTab() {
 
       {loading ? <Skeleton /> : suppliers.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-3">🏪</div>
+          <Store className="w-12 h-12 mx-auto mb-3 text-stone-300 dark:text-stone-700" aria-hidden="true" />
           <p className="text-stone-500 dark:text-stone-400 text-sm font-medium">Sin proveedores registrados</p>
         </div>
       ) : (
@@ -531,43 +529,47 @@ function ProveedoresTab() {
                       <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Contacto: {s.contact_person}</p>
                     )}
                     {(s.city || s.address) && (
-                      <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                        📍 {[s.city, s.address].filter(Boolean).join(", ")}
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        {[s.city, s.address].filter(Boolean).join(", ")}
                       </p>
                     )}
 
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
-                      {s.email && <ContactLink href={`mailto:${s.email}`} icon="📧" label={s.email} />}
-                      {s.phone && <ContactLink href={`tel:${s.phone}`} icon="📞" label={s.phone} />}
+                      {s.email && <ContactLink href={`mailto:${s.email}`} icon={<Mail className="w-3.5 h-3.5" aria-hidden="true" />} label={s.email} />}
+                      {s.phone && <ContactLink href={`tel:${s.phone}`} icon={<Phone className="w-3.5 h-3.5" aria-hidden="true" />} label={s.phone} />}
                       {s.whatsapp && (
                         <ContactLink
                           href={`https://wa.me/${s.whatsapp.replace(/[^0-9]/g, "")}`}
-                          icon="💬" label={s.whatsapp}
+                          icon={<MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />} label={s.whatsapp}
                         />
                       )}
                       {s.website && (
                         <ContactLink
                           href={s.website.startsWith("http") ? s.website : `https://${s.website}`}
-                          icon="🌐" label={s.website}
+                          icon={<Globe className="w-3.5 h-3.5" aria-hidden="true" />} label={s.website}
                         />
                       )}
                     </div>
 
                     {s.notes && (
-                      <p className="text-xs text-stone-400 dark:text-stone-500 mt-1.5 italic">{s.notes}</p>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 italic">{s.notes}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="flex gap-2 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
                   <button onClick={() => openEdit(s)}
-                    className="flex-1 text-center text-xs font-medium text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg py-1.5 transition-colors">
+                    className="flex-1 text-center text-xs font-medium text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg py-3 min-h-11 transition-colors">
                     Editar
                   </button>
-                  <button onClick={() => handleDelete(s.id)}
-                    className="px-4 text-xs font-medium text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 rounded-lg py-1.5 transition-colors">
-                    Eliminar
-                  </button>
+                  <IconButton
+                    aria-label="Eliminar proveedor"
+                    variant="danger"
+                    onClick={() => handleDelete(s.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </IconButton>
                 </div>
               </div>
             );

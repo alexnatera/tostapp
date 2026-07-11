@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, type BusinessProfile, type Document_ } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { ArrowLeft, Download } from "lucide-react";
+import { toast } from "../lib/toast";
 
 const typeLabel: Record<string, string> = {
   presupuesto: "PRESUPUESTO",
@@ -18,10 +20,10 @@ const statusLabel: Record<string, string> = {
 };
 
 const statusColor: Record<string, string> = {
-  borrador: "bg-stone-100 text-stone-600",
-  enviado: "bg-blue-50 text-blue-700",
-  pagado: "bg-emerald-50 text-emerald-700",
-  cancelado: "bg-red-50 text-red-600",
+  borrador: "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400",
+  enviado: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400",
+  pagado: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400",
+  cancelado: "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400",
 };
 
 function formatMoney(amount: number, currency: string): string {
@@ -50,8 +52,12 @@ export default function DocumentDetailPage() {
 
   async function updateStatus(status: string) {
     if (!doc || !id) return;
-    const updated = await api.documents.update(id, { status: status as Document_["status"] });
-    setDoc(updated);
+    try {
+      const updated = await api.documents.update(id, { status: status as Document_["status"] });
+      setDoc(updated);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Error al actualizar el estado");
+    }
   }
 
   function handlePrint() {
@@ -77,13 +83,14 @@ export default function DocumentDetailPage() {
 
   return (
     <>
+      <h1 className="sr-only">Documento {doc.doc_number}</h1>
       {/* Screen-only actions bar */}
       <div className="no-print bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 px-4 py-3 flex items-center justify-between gap-3 sticky top-0 z-10">
         <button
           onClick={() => nav("/documents")}
-          className="text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm flex items-center gap-1 transition-colors"
+          className="text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm flex items-center gap-1 py-2 transition-colors"
         >
-          ← Documentos
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Documentos
         </button>
         <div className="flex items-center gap-2">
           {/* Quick status change */}
@@ -107,7 +114,7 @@ export default function DocumentDetailPage() {
             onClick={handlePrint}
             className="text-xs font-semibold bg-amber-800 text-white hover:bg-amber-900 rounded-xl px-4 py-2 transition-colors flex items-center gap-1.5"
           >
-            <span>⬇</span> Descargar PDF
+            <Download className="w-3.5 h-3.5" aria-hidden="true" /> Descargar PDF
           </button>
         </div>
       </div>
@@ -173,7 +180,7 @@ export default function DocumentDetailPage() {
           {/* Client */}
           {(doc.client_name || doc.client_email || doc.client_address || doc.client_tax_id) && (
             <div className="px-8 py-5 bg-stone-50 border-b border-stone-100">
-              <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Facturar a</p>
+              <p className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2">Facturar a</p>
               {doc.client_name && <p className="font-semibold text-stone-900">{doc.client_name}</p>}
               {doc.client_tax_id && <p className="text-xs text-stone-500 mt-0.5">RUT: {doc.client_tax_id}</p>}
               {doc.client_address && <p className="text-xs text-stone-500 mt-0.5">{doc.client_address}</p>}
@@ -183,45 +190,47 @@ export default function DocumentDetailPage() {
 
           {/* Items table */}
           <div className="px-8 py-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-stone-200">
-                  <th className="text-left py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3">Descripción</th>
-                  <th className="text-center py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3 w-16">Cant.</th>
-                  <th className="text-right py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3 w-28">P. Unit.</th>
-                  <th className="text-right py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3 w-28">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {doc.items.map((item, i) => (
-                  <tr key={i} className="border-b border-stone-100">
-                    <td className="py-3 text-stone-800">{item.description}</td>
-                    <td className="py-3 text-center text-stone-600">{item.qty}</td>
-                    <td className="py-3 text-right text-stone-600">{formatMoney(item.unit_price, doc.currency)}</td>
-                    <td className="py-3 text-right font-medium text-stone-800">{formatMoney(item.total, doc.currency)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-stone-200">
+                    <th className="text-left py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3">Descripción</th>
+                    <th className="text-center py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3 w-16">Cant.</th>
+                    <th className="text-right py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3 w-28">P. Unit.</th>
+                    <th className="text-right py-2 text-xs font-bold text-stone-500 uppercase tracking-wider pb-3 w-28">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {doc.items.map((item, i) => (
+                    <tr key={i} className="border-b border-stone-100">
+                      <td className="py-3 text-stone-800">{item.description}</td>
+                      <td className="num py-3 text-center text-stone-600">{item.qty}</td>
+                      <td className="num py-3 text-right text-stone-600">{formatMoney(item.unit_price, doc.currency)}</td>
+                      <td className="num py-3 text-right font-medium text-stone-800">{formatMoney(item.total, doc.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {/* Totals */}
             <div className="mt-5 flex justify-end">
               <div className="w-60 space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-stone-500">Subtotal</span>
-                  <span className="text-stone-700">{formatMoney(subtotal, doc.currency)}</span>
+                  <span className="num text-stone-700">{formatMoney(subtotal, doc.currency)}</span>
                 </div>
                 {taxRate > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-stone-500">Impuesto ({taxRate}%)</span>
-                    <span className="text-stone-700">{formatMoney(taxAmount, doc.currency)}</span>
+                    <span className="num text-stone-700">{formatMoney(taxAmount, doc.currency)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-base font-bold pt-2 border-t-2 border-stone-800 mt-2">
                   <span className="text-stone-900">TOTAL</span>
-                  <span className="text-stone-900">{formatMoney(total, doc.currency)}</span>
+                  <span className="num text-stone-900">{formatMoney(total, doc.currency)}</span>
                 </div>
-                <p className="text-xs text-stone-400 text-right">{doc.currency}</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 text-right">{doc.currency}</p>
               </div>
             </div>
           </div>
@@ -230,7 +239,7 @@ export default function DocumentDetailPage() {
           {doc.notes && (
             <div className="px-8 pb-6">
               <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
-                <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1.5">Notas</p>
+                <p className="text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1.5">Notas</p>
                 <p className="text-sm text-stone-600 whitespace-pre-line">{doc.notes}</p>
               </div>
             </div>
@@ -238,11 +247,11 @@ export default function DocumentDetailPage() {
 
           {/* Footer */}
           <div className="px-8 py-4 border-t border-stone-100 flex items-center justify-between">
-            <p className="text-xs text-stone-400">
+            <p className="text-xs text-stone-500 dark:text-stone-400">
               {statusLabel[doc.status] !== "Borrador" ? "" : ""}
               Generado con Tostapp
             </p>
-            <p className="text-xs text-stone-400">{profile.roastery_name}</p>
+            <p className="text-xs text-stone-500 dark:text-stone-400">{profile.roastery_name}</p>
           </div>
         </div>
       </div>

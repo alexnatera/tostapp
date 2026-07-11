@@ -3,6 +3,7 @@ import { api, type FinanceDashboard, type WeekSummary } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import AppLayout from "../components/AppLayout";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 const PERIODS = [
   { label: "7d", value: 7 },
@@ -20,11 +21,11 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
       <p className={`text-xs font-medium mb-1 ${accent ? "text-amber-200" : "text-stone-500 dark:text-stone-400"}`}>
         {label}
       </p>
-      <p className={`text-xl font-bold ${accent ? "text-white" : "text-stone-900 dark:text-stone-100"}`}>
+      <p className={`num text-xl font-bold ${accent ? "text-white" : "text-stone-900 dark:text-stone-100"}`}>
         {value}
       </p>
       {sub && (
-        <p className={`text-xs mt-0.5 ${accent ? "text-amber-200/80" : "text-stone-400 dark:text-stone-500"}`}>
+        <p className={`num text-xs mt-0.5 ${accent ? "text-amber-200/80" : "text-stone-400 dark:text-stone-500"}`}>
           {sub}
         </p>
       )}
@@ -41,13 +42,13 @@ function WeekBar({ week, maxRevenue }: { week: WeekSummary; maxRevenue: number }
     <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
       <div className="w-full flex gap-0.5 items-end h-14">
         <div
-          className="flex-1 bg-stone-200 dark:bg-stone-700 rounded-t transition-all"
-          style={{ height: `${Math.max(costPct, 4)}%` }}
+          className="flex-1 h-full origin-bottom bg-stone-200 dark:bg-stone-700 rounded-t transition-transform"
+          style={{ transform: `scaleY(${Math.max(costPct, 4) / 100})` }}
           title={`Costo: $${week.purchased_cost.toFixed(0)}`}
         />
         <div
-          className="flex-1 bg-amber-600 dark:bg-amber-500 rounded-t transition-all"
-          style={{ height: `${Math.max(revPct, 4)}%` }}
+          className="flex-1 h-full origin-bottom bg-amber-600 dark:bg-amber-500 rounded-t transition-transform"
+          style={{ transform: `scaleY(${Math.max(revPct, 4) / 100})` }}
           title={`Ventas: $${week.revenue.toFixed(0)}`}
         />
       </div>
@@ -76,7 +77,7 @@ export default function FinancePage() {
               <button
                 key={p.value}
                 onClick={() => setDays(p.value)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                className={`text-xs px-3 min-h-11 rounded-lg font-medium transition-all ${
                   days === p.value
                     ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm"
                     : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
@@ -168,16 +169,21 @@ export default function FinancePage() {
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between">
                     <span className="text-stone-500 dark:text-stone-400">{label}</span>
-                    <span className="font-medium text-stone-900 dark:text-stone-100">{value}</span>
+                    <span className="num font-medium text-stone-900 dark:text-stone-100">{value}</span>
                   </div>
                 ))}
                 <div className="border-t border-stone-100 dark:border-stone-800 pt-2.5 flex justify-between">
                   <span className="text-stone-500 dark:text-stone-400">Ingresos totales</span>
-                  <span className="font-bold text-stone-900 dark:text-stone-100">${data.total_revenue.toFixed(2)}</span>
+                  <span className="num font-bold text-stone-900 dark:text-stone-100">${data.total_revenue.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-500 dark:text-stone-400">Margen bruto</span>
-                  <span className={`font-bold ${data.gross_margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  <span className={`num font-bold inline-flex items-center gap-1 ${data.gross_margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                    {data.gross_margin >= 0 ? (
+                      <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />
+                    ) : (
+                      <TrendingDown className="w-3.5 h-3.5" aria-hidden="true" />
+                    )}
                     ${data.gross_margin.toFixed(2)}
                   </span>
                 </div>
@@ -205,13 +211,13 @@ export default function FinancePage() {
                         <td className="px-4 py-2.5 text-stone-700 dark:text-stone-300">
                           {format(new Date(week.week_start + "T12:00:00"), "d MMM", { locale: es })}
                         </td>
-                        <td className="px-3 py-2.5 text-right text-stone-500 dark:text-stone-400">
+                        <td className="num px-3 py-2.5 text-right text-stone-500 dark:text-stone-400">
                           {week.purchased_cost > 0 ? `$${week.purchased_cost.toFixed(0)}` : "—"}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-medium text-stone-900 dark:text-stone-100">
+                        <td className="num px-3 py-2.5 text-right font-medium text-stone-900 dark:text-stone-100">
                           {week.revenue > 0 ? `$${week.revenue.toFixed(0)}` : "—"}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-stone-500 dark:text-stone-400">
+                        <td className="num px-4 py-2.5 text-right text-stone-500 dark:text-stone-400">
                           {week.roasted_kg > 0 ? week.roasted_kg.toFixed(1) : "—"}
                         </td>
                       </tr>

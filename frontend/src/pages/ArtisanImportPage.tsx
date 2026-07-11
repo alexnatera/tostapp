@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, ArrowRight, CheckCircle2, FolderOpen, Loader2 } from "lucide-react";
 import { api, type Roast } from "../lib/api";
 
 const levelLabel: Record<string, string> = { light: "Claro", medium: "Medio", dark: "Oscuro" };
@@ -46,9 +47,10 @@ export default function ArtisanImportPage() {
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 max-w-2xl mx-auto px-4 py-6">
       <button
         onClick={() => nav("/")}
-        className="text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm mb-5 flex items-center gap-1 transition-colors"
+        className="text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm mb-5 -ml-2 py-2 px-2 min-h-11 flex items-center gap-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
       >
-        ← Mis tuestes
+        <ArrowLeft className="w-4 h-4" />
+        Mis tuestes
       </button>
 
       <div className="mb-6">
@@ -61,8 +63,8 @@ export default function ArtisanImportPage() {
       {result ? (
         <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center text-xl shrink-0">
-              ✅
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
             </div>
             <div>
               <p className="font-semibold text-stone-900 dark:text-stone-100">Tueste importado</p>
@@ -89,13 +91,14 @@ export default function ArtisanImportPage() {
           <div className="flex gap-3">
             <Link
               to={`/roasts/${result.id}`}
-              className="flex-1 text-center bg-amber-800 dark:bg-amber-600 text-white rounded-xl py-2.5 font-semibold hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors text-sm"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-amber-800 dark:bg-amber-600 text-white rounded-xl py-3 min-h-11 font-semibold hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
             >
-              Ver tueste →
+              Ver tueste
+              <ArrowRight className="w-4 h-4" />
             </Link>
             <button
               onClick={() => { setResult(null); if (inputRef.current) inputRef.current.value = ""; }}
-              className="flex-1 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 rounded-xl py-2.5 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sm"
+              className="flex-1 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 rounded-xl py-3 min-h-11 font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
             >
               Importar otro
             </button>
@@ -103,12 +106,15 @@ export default function ArtisanImportPage() {
         </div>
       ) : (
         <>
-          <div
+          <button
+            type="button"
+            disabled={importing}
+            aria-label="Arrastra tu archivo .alog aquí o haz clic para seleccionar uno"
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
-            onClick={() => !importing && inputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
+            onClick={() => inputRef.current?.click()}
+            className={`w-full border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 ${
               importing
                 ? "border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/20 pointer-events-none"
                 : dragging
@@ -116,14 +122,20 @@ export default function ArtisanImportPage() {
                   : "border-stone-300 dark:border-stone-700 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-stone-50 dark:hover:bg-stone-900"
             }`}
           >
-            <div className="text-5xl mb-4">{importing ? "⏳" : "📂"}</div>
+            <div className="mb-4 flex justify-center">
+              {importing ? (
+                <Loader2 className="w-10 h-10 text-amber-600 dark:text-amber-400 animate-spin" />
+              ) : (
+                <FolderOpen className="w-10 h-10 text-stone-500 dark:text-stone-400" />
+              )}
+            </div>
             <p className="font-semibold text-stone-900 dark:text-stone-100 mb-1">
               {importing ? "Importando..." : "Arrastra tu archivo .alog"}
             </p>
             <p className="text-sm text-stone-500 dark:text-stone-400">
               {importing ? "Procesando perfil de tueste" : "o haz clic para seleccionar"}
             </p>
-          </div>
+          </button>
 
           <input
             ref={inputRef}
@@ -141,8 +153,9 @@ export default function ArtisanImportPage() {
 
           {!importing && (
             <button
+              type="button"
               onClick={() => inputRef.current?.click()}
-              className="w-full mt-4 bg-amber-800 dark:bg-amber-600 text-white rounded-xl py-3 font-semibold hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors text-sm"
+              className="w-full mt-4 bg-amber-800 dark:bg-amber-600 text-white rounded-xl py-3 min-h-11 font-semibold hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
             >
               Seleccionar archivo .alog
             </button>

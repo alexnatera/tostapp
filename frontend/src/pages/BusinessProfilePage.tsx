@@ -1,7 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ImagePlus } from "lucide-react";
 import { api, type BusinessProfile, type ShopPublic, type ShopTheme } from "../lib/api";
 import ShopLayout from "../components/ShopLayout";
+import Field from "../components/ui/Field";
+import { confirmDestructive } from "../lib/confirm";
+
+/** WCAG relative-luminance based contrast ratio between two hex colors. */
+function contrastRatio(hex1: string, hex2: string): number {
+  const toRgb = (hex: string) => {
+    const clean = hex.replace("#", "");
+    const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+    const num = parseInt(full, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  };
+  const relLuminance = (hex: string) => {
+    const [r, g, b] = toRgb(hex).map((c) => {
+      const s = c / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const l1 = relLuminance(hex1);
+  const l2 = relLuminance(hex2);
+  const [lighter, darker] = l1 > l2 ? [l1, l2] : [l2, l1];
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 const DEFAULT_THEME: ShopTheme = {
   primary_color: "#92400e",
@@ -26,6 +50,7 @@ export default function BusinessProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [logoError, setLogoError] = useState("");
   const logoInputRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
 
@@ -36,8 +61,9 @@ export default function BusinessProfilePage() {
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setLogoError("");
     if (file.size > 1_500_000) {
-      setError("El logo no debe superar 1.5 MB");
+      setLogoError("El logo no debe superar 1.5 MB");
       return;
     }
     const reader = new FileReader();
@@ -81,6 +107,12 @@ export default function BusinessProfilePage() {
     () => ({ ...DEFAULT_THEME, ...(profile?.shop_theme ?? {}) }),
     [profile?.shop_theme]
   );
+
+  const textBgContrast = useMemo(
+    () => contrastRatio(theme.text_color ?? "#000000", theme.bg_color ?? "#ffffff"),
+    [theme.text_color, theme.bg_color]
+  );
+  const contrastWarning = textBgContrast < 4.5;
 
   const previewShop = useMemo<ShopPublic | null>(() => {
     if (!profile) return null;
@@ -129,16 +161,18 @@ export default function BusinessProfilePage() {
           <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5">
             <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">Logo</p>
             <div className="flex items-center gap-4">
-              <div
+              <button
+                type="button"
                 onClick={() => logoInputRef.current?.click()}
-                className="w-20 h-20 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors overflow-hidden bg-stone-50 dark:bg-stone-800 shrink-0"
+                aria-label="Subir logo"
+                className="w-20 h-20 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600 flex items-center justify-center cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 transition-colors overflow-hidden bg-stone-50 dark:bg-stone-800 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
               >
                 {profile.business_logo ? (
                   <img src={profile.business_logo} alt="Logo" className="w-full h-full object-contain p-1" />
                 ) : (
-                  <span className="text-2xl">🏭</span>
+                  <ImagePlus className="w-6 h-6 text-stone-500" />
                 )}
-              </div>
+              </button>
               <div>
                 <button
                   type="button"
@@ -147,12 +181,19 @@ export default function BusinessProfilePage() {
                 >
                   {profile.business_logo ? "Cambiar logo" : "Subir logo"}
                 </button>
-                <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">PNG, JPG o SVG. Máx 1.5 MB</p>
+                <p className="text-xs text-stone-500 mt-0.5">PNG, JPG o SVG. Máx 1.5 MB</p>
                 {profile.business_logo && (
                   <button
                     type="button"
-                    onClick={() => setProfile((p) => p ? { ...p, business_logo: undefined } : p)}
-                    className="text-xs text-red-500 dark:text-red-400 hover:underline mt-1 block"
+                    onClick={async () => {
+                      const ok = await confirmDestructive(
+                        "¿Eliminar el logo? Podés subir uno nuevo cuando quieras.",
+                        "Eliminar logo"
+                      );
+                      if (!ok) return;
+                      setProfile((p) => p ? { ...p, business_logo: undefined } : p);
+                    }}
+                    className="text-xs text-red-500 dark:text-red-400 hover:underline mt-2 block"
                   >
                     Eliminar logo
                   </button>
@@ -166,6 +207,9 @@ export default function BusinessProfilePage() {
                 className="hidden"
               />
             </div>
+            {logoError && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-3">{logoError}</p>
+            )}
           </div>
 
           {/* Basic info */}
@@ -253,11 +297,11 @@ export default function BusinessProfilePage() {
           <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-4">
             <div>
               <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Tienda pública</p>
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">Tu catálogo de productos accesible sin login.</p>
+              <p className="text-xs text-stone-500 mt-0.5">Tu catálogo de productos accesible sin login.</p>
             </div>
             <Field label="URL de tu tienda (slug)">
               <div className="flex rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 focus-within:ring-2 focus-within:ring-amber-400 dark:focus-within:ring-amber-500 focus-within:border-transparent transition-all">
-                <span className="px-3 py-2.5 text-xs text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 border-r border-stone-200 dark:border-stone-700 flex items-center whitespace-nowrap select-none">
+                <span className="px-3 py-2.5 text-xs text-stone-500 bg-stone-100 dark:bg-stone-800 border-r border-stone-200 dark:border-stone-700 flex items-center whitespace-nowrap select-none">
                   /tienda/
                 </span>
                 <input
@@ -268,7 +312,7 @@ export default function BusinessProfilePage() {
                     const raw = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-{2,}/g, "-");
                     set("roastery_slug", raw);
                   }}
-                  className="flex-1 bg-stone-50 dark:bg-stone-800 px-3 py-2.5 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none"
+                  className="flex-1 bg-stone-50 dark:bg-stone-800 px-3 py-2.5 text-base text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none"
                 />
               </div>
               {profile.roastery_slug && (
@@ -290,7 +334,7 @@ export default function BusinessProfilePage() {
                 onChange={(e) => set("whatsapp_number", e.target.value)}
                 className={inputCls}
               />
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">Los clientes podrán contactarte desde la tienda.</p>
+              <p className="text-xs text-stone-500 mt-1">Los clientes podrán contactarte desde la tienda.</p>
             </Field>
           </div>
 
@@ -298,7 +342,7 @@ export default function BusinessProfilePage() {
           <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-5 space-y-5">
             <div>
               <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Apariencia de la tienda</p>
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">Personaliza los colores y el estilo de tu catálogo público.</p>
+              <p className="text-xs text-stone-500 mt-0.5">Personaliza los colores y el estilo de tu catálogo público.</p>
             </div>
 
             {/* Presets */}
@@ -310,7 +354,7 @@ export default function BusinessProfilePage() {
                     key={p.name}
                     type="button"
                     onClick={() => setTheme(p.theme)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:border-amber-400 dark:hover:border-amber-500 transition-colors text-xs font-medium text-stone-700 dark:text-stone-300"
+                    className="flex items-center gap-2 px-3 py-2 min-h-11 rounded-xl border border-stone-200 dark:border-stone-700 hover:border-amber-400 dark:hover:border-amber-500 transition-colors text-xs font-medium text-stone-700 dark:text-stone-300"
                   >
                     <span className="flex gap-0.5 shrink-0">
                       <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: p.theme.primary_color }} />
@@ -335,20 +379,19 @@ export default function BusinessProfilePage() {
                     ["Texto", "text_color"],
                   ] as [string, keyof ShopTheme][]
                 ).map(([label, key]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={(theme[key] as string) ?? "#000000"}
-                      onChange={(e) => setTheme({ [key]: e.target.value })}
-                      className="w-8 h-8 rounded-lg border border-stone-200 dark:border-stone-700 cursor-pointer bg-transparent p-0.5"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs text-stone-600 dark:text-stone-400 truncate">{label}</p>
-                      <p className="text-xs text-stone-400 dark:text-stone-500 font-mono">{theme[key] as string}</p>
-                    </div>
-                  </div>
+                  <ColorSwatchField
+                    key={key}
+                    label={label}
+                    value={(theme[key] as string) ?? "#000000"}
+                    onChange={(value) => setTheme({ [key]: value })}
+                  />
                 ))}
               </div>
+              {contrastWarning && (
+                <p className="text-xs text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 rounded-xl mt-3">
+                  Este contraste puede ser difícil de leer (relación {textBgContrast.toFixed(1)}:1). Elegí un texto o fondo con más contraste.
+                </p>
+              )}
             </div>
 
             {/* Font + Layout */}
@@ -437,7 +480,7 @@ export default function BusinessProfilePage() {
                 onChange={(e) => setTheme({ banner_image: e.target.value || undefined })}
                 className={inputCls}
               />
-              <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+              <p className="text-xs text-stone-500 mt-1">
                 Aparece en la parte superior de tu tienda pública (recomendado: 1200×400px).
               </p>
             </Field>
@@ -478,15 +521,40 @@ export default function BusinessProfilePage() {
 }
 
 const inputCls =
-  "w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500 focus:border-transparent transition-all";
+  "w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5 text-base text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:focus:ring-amber-500 focus:border-transparent transition-all";
 
-function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+/**
+ * Color swatch + label, with a 44x44 touch target wrapping the (visually
+ * smaller) native color input, and a proper label/input association.
+ */
+function ColorSwatchField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
   return (
-    <div>
-      <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1.5">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    <div className="flex items-center gap-2">
+      <label
+        htmlFor={id}
+        className="inline-flex items-center justify-center min-w-11 min-h-11 rounded-lg border border-stone-200 dark:border-stone-700 cursor-pointer shrink-0"
+      >
+        <input
+          id={id}
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-8 h-8 rounded-md cursor-pointer bg-transparent p-0.5"
+        />
       </label>
-      {children}
+      <div className="min-w-0">
+        <p className="text-xs text-stone-600 dark:text-stone-400 truncate">{label}</p>
+        <p className="text-xs text-stone-500 font-mono">{value}</p>
+      </div>
     </div>
   );
 }

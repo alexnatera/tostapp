@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import { useAuth } from "./lib/auth";
+import Toaster from "./components/ui/Toaster";
+import ConfirmDialog from "./components/ui/ConfirmDialog";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -62,6 +64,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/profile" element={<PrivateRoute><BusinessProfilePage /></PrivateRoute>} />
         <Route path="/products" element={<PrivateRoute><ProductsPage /></PrivateRoute>} />
       </Routes>
+      <Toaster />
+      <ConfirmDialog />
     </BrowserRouter>
   </StrictMode>
 );

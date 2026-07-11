@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Download, FolderOpen, Coffee, AlertCircle } from "lucide-react";
 import { api, type Roast, type FinanceDashboard } from "../lib/api";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -20,8 +21,8 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
   return (
     <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 px-4 py-3 flex-1 min-w-0">
       <p className="text-xs text-stone-500 dark:text-stone-400 mb-1">{label}</p>
-      <p className="text-xl font-bold text-stone-900 dark:text-stone-100 truncate">{value}</p>
-      {sub && <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{sub}</p>}
+      <p className="text-xl font-bold text-stone-900 dark:text-stone-100 truncate num">{value}</p>
+      {sub && <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 num">{sub}</p>}
     </div>
   );
 }
@@ -30,10 +31,11 @@ export default function DashboardPage() {
   const [roasts, setRoasts] = useState<Roast[]>([]);
   const [finance, setFinance] = useState<FinanceDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     Promise.all([
-      api.roasts.list().then((res) => setRoasts(res.items)),
+      api.roasts.list().then((res) => setRoasts(res.items)).catch(() => setLoadError(true)),
       api.finance.dashboard(30).then(setFinance).catch(() => null),
     ]).finally(() => setLoading(false));
   }, []);
@@ -52,10 +54,10 @@ export default function DashboardPage() {
             <a
               href={api.roasts.exportUrl()}
               download
-              className="text-xs font-medium text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl px-3 py-2 transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-11 text-xs font-medium text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl px-3.5 py-2 transition-colors"
               title="Exportar CSV"
             >
-              ⬇ CSV
+              <Download className="w-4 h-4" /> CSV
             </a>
             <Link
               to="/roasts/new"
@@ -91,9 +93,9 @@ export default function DashboardPage() {
         <div className="mb-5">
           <Link
             to="/roasts/import-artisan"
-            className="inline-flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 hover:text-amber-800 dark:hover:text-amber-400 transition-colors bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5"
+            className="inline-flex items-center gap-2 min-h-11 text-xs text-stone-500 dark:text-stone-400 hover:text-amber-800 dark:hover:text-amber-400 transition-colors bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl px-4 py-2.5"
           >
-            <span>📂</span>
+            <FolderOpen className="w-4 h-4" />
             Importar .alog desde Artisan
           </Link>
         </div>
@@ -101,7 +103,7 @@ export default function DashboardPage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 animate-pulse">
+              <div key={i} className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 p-4 animate-pulse motion-reduce:animate-none">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-stone-200 dark:bg-stone-700 rounded-xl" />
                   <div className="flex-1">
@@ -112,11 +114,17 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+        ) : loadError ? (
+          <div className="text-center py-10">
+            <AlertCircle className="w-12 h-12 mx-auto mb-5 text-stone-400 dark:text-stone-600" />
+            <p className="text-stone-600 dark:text-stone-400 font-medium mb-1">No pudimos cargar tus tuestes</p>
+            <p className="text-stone-500 dark:text-stone-400 text-sm">Revisa tu conexión e intenta de nuevo.</p>
+          </div>
         ) : roasts.length === 0 ? (
           <div className="text-center py-10">
-            <div className="text-6xl mb-5">☕</div>
+            <Coffee className="w-12 h-12 mx-auto mb-5 text-stone-400 dark:text-stone-600" />
             <p className="text-stone-600 dark:text-stone-400 font-medium mb-1">Sin tuestes aún</p>
-            <p className="text-stone-400 dark:text-stone-500 text-sm">Registra tu primer tueste o importa un archivo de Artisan.</p>
+            <p className="text-stone-500 dark:text-stone-400 text-sm">Registra tu primer tueste o importa un archivo de Artisan.</p>
             <Link
               to="/roasts/new"
               className="inline-block mt-4 bg-amber-800 dark:bg-amber-600 text-white rounded-xl px-6 py-2.5 text-sm font-semibold hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors"
@@ -143,7 +151,7 @@ export default function DashboardPage() {
                     {" · "}{levelLabel[r.roast_level]}
                   </p>
                   {r.tasting_notes && (
-                    <p className="text-xs text-stone-400 dark:text-stone-500 mt-1 italic truncate">{r.tasting_notes}</p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 italic truncate">{r.tasting_notes}</p>
                   )}
                 </div>
                 <span className="text-stone-300 dark:text-stone-600 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors text-sm shrink-0">

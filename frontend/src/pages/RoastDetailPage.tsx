@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { api, type Roast } from "../lib/api";
+import { useQrDataUrl } from "../lib/qr";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -334,8 +335,8 @@ export default function RoastDetailPage() {
     </div>
   );
 
-  const qrUrl     = api.public.qrUrl(roast.slug);
   const publicUrl = `${window.location.origin}/r/${roast.slug}`;
+  const qrUrl = useQrDataUrl(publicUrl);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(publicUrl).then(() => {

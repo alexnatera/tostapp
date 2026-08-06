@@ -3,7 +3,10 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import tailwindcss from "@tailwindcss/vite";
 
+const base = process.env.VITE_BASE_PATH ?? "/tostapp/";
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -16,10 +19,11 @@ export default defineConfig({
         theme_color: "#3d1f0a",
         background_color: "#faf7f2",
         display: "standalone",
-        start_url: "/",
+        start_url: base,
+        scope: base,
         icons: [
-          { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png" },
         ],
       },
     }),

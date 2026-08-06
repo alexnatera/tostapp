@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase } from "./supabase";
 
 interface ImpersonationState {
   originalToken: string;
@@ -48,9 +49,29 @@ export const useAuth = create<AuthState>()(
         });
       },
       logout: () => {
+        supabase.auth.signOut();
         set({ token: null, roasteryName: null, isAdmin: false, impersonating: null });
       },
     }),
     { name: "tostapp-auth" }
   )
 );
+
+async function syncFromSession(session: { access_token: string; user: { id: string } } | null) {
+  if (useAuth.getState().impersonating) return;
+  if (!session) {
+    useAuth.setState({ token: null, roasteryName: null, isAdmin: false });
+    return;
+  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("roastery_name, is_admin")
+    .eq("id", session.user.id)
+    .single();
+  useAuth.getState().setToken(session.access_token, profile?.roastery_name ?? "", profile?.is_admin ?? false);
+}
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  syncFromSession(session);
+});
+supabase.auth.getSession().then(({ data }) => syncFromSession(data.session));

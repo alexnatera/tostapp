@@ -1,0 +1,63 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches: [supabase-pages]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # The Supabase anon key is safe to ship in a client bundle by design (access is
+          # enforced by Postgres RLS, not by keeping this key secret) so it is inlined here
+          # instead of requiring a GitHub secret to be configured by hand. Override with repo
+          # secrets of the same name if you would rather not commit it to the workflow file.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || "https://hasgkfuueizmgyapxhwr.supabase.co" }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhc2drZnV1ZWl6bWd5YXB4aHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NzE3NjUsImV4cCI6MjEwMTU0Nzc2NX0.dEh8cRZMed7QFFdTgi5nPDd5unzsN-3zng7_Bj3W2hw" }}
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: SPA fallback for client-side routing
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

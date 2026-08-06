@@ -49,7 +49,7 @@ function CoffeeStockSection() {
     <div className="space-y-3">
       <div className="relative rounded-2xl overflow-hidden h-28">
         <img
-          src="/images/coffee-beans.jpg"
+          src={`${import.meta.env.BASE_URL}images/coffee-beans.jpg`}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
         />

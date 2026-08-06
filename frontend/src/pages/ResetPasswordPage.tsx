@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
 export default function ResetPasswordPage() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") ?? "";
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -15,13 +13,9 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
-    if (!token) {
-      setError("Link inválido. Solicita uno nuevo.");
-      return;
-    }
     setLoading(true);
     try {
-      await api.auth.resetPassword(token, password);
+      await api.auth.resetPassword("", password);
       setSuccess("Contraseña actualizada ✓");
       setTimeout(() => nav("/login"), 1500);
     } catch (err) {

@@ -49,14 +49,13 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={api.roasts.exportUrl()}
-              download
+            <button
+              onClick={() => api.roasts.downloadCsv()}
               className="text-xs font-medium text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl px-3 py-2 transition-colors"
               title="Exportar CSV"
             >
               ⬇ CSV
-            </a>
+            </button>
             <Link
               to="/roasts/new"
               className="bg-amber-800 dark:bg-amber-600 text-white rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-amber-900 dark:hover:bg-amber-500 transition-colors shadow-sm"

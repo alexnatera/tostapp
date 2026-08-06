@@ -26,7 +26,7 @@ export default function AdminPage() {
   const [impersonating, setImpersonating] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [settingPlan, setSettingPlan] = useState<string | null>(null);
-  const { startImpersonation, logout } = useAuth();
+  const { logout } = useAuth();
   const nav = useNavigate();
 
   useEffect(() => {
@@ -39,8 +39,7 @@ export default function AdminPage() {
     setImpersonating(user.id);
     try {
       const res = await api.admin.impersonate(user.id);
-      startImpersonation(res.access_token, user.roastery_name);
-      nav("/");
+      window.open(res.action_link, "_blank", "noopener,noreferrer");
     } catch (e) {
       alert((e as Error).message);
     } finally {

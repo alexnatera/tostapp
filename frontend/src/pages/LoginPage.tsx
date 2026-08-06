@@ -50,7 +50,7 @@ export default function LoginPage() {
       {/* Hero image panel — desktop only */}
       <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
         <img
-          src="/images/login-hero.jpg"
+          src={`${import.meta.env.BASE_URL}images/login-hero.jpg`}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
         />
@@ -75,7 +75,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <img
-            src="/images/app-icon.jpg"
+            src={`${import.meta.env.BASE_URL}images/app-icon.jpg`}
             alt="Tostapp"
             className="w-16 h-16 rounded-2xl shadow-lg object-cover mx-auto mb-4"
           />

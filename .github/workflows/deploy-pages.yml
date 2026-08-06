@@ -41,8 +41,8 @@ jobs:
           # enforced by Postgres RLS, not by keeping this key secret) so it is inlined here
           # instead of requiring a GitHub secret to be configured by hand. Override with repo
           # secrets of the same name if you would rather not commit it to the workflow file.
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || "https://hasgkfuueizmgyapxhwr.supabase.co" }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhc2drZnV1ZWl6bWd5YXB4aHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NzE3NjUsImV4cCI6MjEwMTU0Nzc2NX0.dEh8cRZMed7QFFdTgi5nPDd5unzsN-3zng7_Bj3W2hw" }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://hasgkfuueizmgyapxhwr.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhhc2drZnV1ZWl6bWd5YXB4aHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5NzE3NjUsImV4cCI6MjEwMTU0Nzc2NX0.dEh8cRZMed7QFFdTgi5nPDd5unzsN-3zng7_Bj3W2hw' }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
       - name: SPA fallback for client-side routing

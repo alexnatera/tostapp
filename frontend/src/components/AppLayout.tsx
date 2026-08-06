@@ -43,7 +43,7 @@ export default function AppLayout({ active, children }: Props) {
         {/* Logo */}
         <div className="px-5 py-4 border-b border-stone-200 dark:border-stone-800">
           <img
-            src={isDark ? "/logo-dark.svg" : "/logo.svg"}
+            src={isDark ? `${import.meta.env.BASE_URL}logo-dark.svg` : `${import.meta.env.BASE_URL}logo.svg`}
             alt="Tostapp"
             className="h-9 w-auto"
           />
